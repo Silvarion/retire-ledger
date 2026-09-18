@@ -108,6 +108,12 @@
     display:flex;align-items:baseline;gap:6px;
   }
   .money-input span{font-family:'Fraunces',serif;font-size:22px;color:var(--gold);}
+  .money-input select.currency-select{
+    width:auto;margin:0;padding:0 4px 0 0;
+    background:transparent;border:none;outline:none;
+    font-family:'Fraunces',serif;font-size:20px;color:var(--gold);
+    cursor:pointer;
+  }
   .money-input input{
     background:transparent;border:none;outline:none;
     font-family:'Fraunces',serif;font-size:28px;color:var(--text);
@@ -442,10 +448,10 @@
     <div class="field">
       <label for="targetIncome">Desired net annual dividend income</label>
       <div class="money-input">
-        <span>€</span>
+        <select id="currencySelect" class="currency-select" aria-label="Currency"></select>
         <input type="number" id="targetIncome" value="24000" min="0" step="100">
       </div>
-      <div class="hint">Split quarterly (or monthly, via the calendar below) across your funds.</div>
+      <div class="hint">Split quarterly (or monthly, via the calendar below) across your funds. All figures on this page (prices, income, capital) are shown in whichever currency you pick — nothing is converted, so enter fund prices/dividends in that same currency too.</div>
     </div>
 
     <div class="field">
@@ -461,7 +467,7 @@
       <div id="spainBox" class="brackets-list" style="display:none;">
         <div><b>19%</b> up to €6,000 &nbsp;·&nbsp; <b>21%</b> €6,000–50,000</div>
         <div><b>23%</b> €50,000–200,000 &nbsp;·&nbsp; <b>27%</b> €200,000–300,000 &nbsp;·&nbsp; <b>30%</b> above</div>
-        <div style="margin-top:6px;color:var(--text-faint);">2026 IRPF base del ahorro (state scale). Applied progressively to total gross dividend income; blended rate shown in results.</div>
+        <div style="margin-top:6px;color:var(--text-faint);">2026 IRPF base del ahorro (state scale). Applied progressively to total gross dividend income; blended rate shown in results. Bracket thresholds (€6,000 etc.) are fixed by Spanish law in euros regardless of the currency selected above — only use this option if your figures are actually in EUR.</div>
       </div>
     </div>
 
@@ -511,8 +517,8 @@
       <thead>
         <tr>
           <th>Fund</th>
-          <th>Price (€)</th>
-          <th>Gross div/share (€/yr)</th>
+          <th id="thPrice">Price (€)</th>
+          <th id="thDivPerShare">Gross div/share (€/yr)</th>
           <th>Gross yield</th>
           <th>Net div/share</th>
           <th>Weight</th>
@@ -601,9 +607,45 @@ function defaultFunds(){
 let FUNDS = defaultFunds();
 let taxMode = 'flat'; // 'flat' | 'spain'
 
-const eur = n => new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
-const eur2 = n => new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:2}).format(n);
-const pct = n => new Intl.NumberFormat('es-ES',{style:'percent',maximumFractionDigits:2}).format(n);
+// Display currency only — nothing on this page converts between currencies.
+// Pick whichever matches the currency your fund prices/dividends are
+// actually quoted in.
+const CURRENCIES = {
+  EUR: { locale:'es-ES', label:'€ EUR — Euro' },
+  USD: { locale:'en-US', label:'$ USD — US Dollar' },
+  GBP: { locale:'en-GB', label:'£ GBP — British Pound' },
+  CHF: { locale:'de-CH', label:'CHF — Swiss Franc' },
+  JPY: { locale:'ja-JP', label:'¥ JPY — Japanese Yen' },
+};
+let currentCurrency = 'EUR';
+
+const eur = n => new Intl.NumberFormat(CURRENCIES[currentCurrency].locale,{style:'currency',currency:currentCurrency,maximumFractionDigits:0}).format(n);
+const eur2 = n => new Intl.NumberFormat(CURRENCIES[currentCurrency].locale,{style:'currency',currency:currentCurrency,maximumFractionDigits:2}).format(n);
+const pct = n => new Intl.NumberFormat(CURRENCIES[currentCurrency].locale,{style:'percent',maximumFractionDigits:2}).format(n);
+const fmtCount = n => n.toLocaleString(CURRENCIES[currentCurrency].locale);
+
+// Derived from Intl itself (not a hand-maintained string) so it always exactly matches
+// whatever eur()/eur2() actually render for this currency/locale pair — CHF and JPY in
+// particular don't use the "obvious" ASCII symbol (Intl renders "CHF"/"￥", not "Fr"/"¥").
+function currencySymbol(code){
+  const part = new Intl.NumberFormat(CURRENCIES[code].locale,{style:'currency',currency:code,maximumFractionDigits:0})
+    .formatToParts(0).find(p=>p.type==='currency');
+  return part ? part.value : code;
+}
+
+function populateCurrencySelect(){
+  const sel = document.getElementById('currencySelect');
+  sel.innerHTML = Object.keys(CURRENCIES).map(code=>
+    `<option value="${code}">${esc(CURRENCIES[code].label)}</option>`
+  ).join('');
+  sel.value = currentCurrency;
+}
+
+function updateCurrencyLabels(){
+  const sym = currencySymbol(currentCurrency);
+  document.getElementById('thPrice').textContent = `Price (${sym})`;
+  document.getElementById('thDivPerShare').textContent = `Gross div/share (${sym}/yr)`;
+}
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
 function spainTax(gross){
@@ -955,7 +997,7 @@ async function fetchOneFundPrice(f){
       f.price = price.value;
       const priceEl = document.getElementById('price-'+f.id);
       if(priceEl) priceEl.value = price.value;
-      priceMsg = `price €${price.value} (${priceResult.endpoint})`;
+      priceMsg = `price ${currencySymbol(currentCurrency)}${price.value} (${priceResult.endpoint})`;
       anyOk = true;
     }
   }
@@ -966,7 +1008,7 @@ async function fetchOneFundPrice(f){
       f.div = Math.round(div.value*10000)/10000;
       const divEl = document.getElementById('divps-'+f.id);
       if(divEl) divEl.value = f.div;
-      divMsg = `div €${f.div.toFixed(2)}/yr (sum of last ${div.count})`;
+      divMsg = `div ${currencySymbol(currentCurrency)}${f.div.toFixed(2)}/yr (sum of last ${div.count})`;
       anyOk = true;
     }
   }
@@ -1155,6 +1197,7 @@ function collectConfig(){
     version: CONFIG_VERSION,
     savedAt: new Date().toISOString(),
     targetIncome: parseFloat(document.getElementById('targetIncome').value)||0,
+    currency: currentCurrency,
     taxMode: taxMode,
     flatRate: parseFloat(document.getElementById('flatRate').value)||0,
     allocMode: document.getElementById('allocMode').value,
@@ -1185,6 +1228,11 @@ function applyConfig(cfg){
 
   if(typeof cfg.targetIncome==='number'){
     document.getElementById('targetIncome').value = cfg.targetIncome;
+  }
+  if(typeof cfg.currency==='string' && CURRENCIES[cfg.currency]){
+    currentCurrency = cfg.currency;
+    document.getElementById('currencySelect').value = currentCurrency;
+    updateCurrencyLabels();
   }
   if(cfg.taxMode==='spain'){
     document.getElementById('btnSpain').click();
@@ -1293,7 +1341,7 @@ function render(){
     set('yield', pct(yld));
     set('netdiv', eur2(div*(1-blendedRate)));
     set('weight', pct(w));
-    set('shares', Math.round(shares).toLocaleString('es-ES'));
+    set('shares', fmtCount(Math.round(shares)));
     set('invest', eur(invest));
     set('netinc', eur(netInc));
     set('netq', eur(netInc/4));
@@ -1308,7 +1356,7 @@ function render(){
     <td>Portfolio total (${FUNDS.length} fund${FUNDS.length===1?'':'s'})</td>
     <td></td><td></td><td></td><td></td>
     <td>${pct(weights.reduce((a,b)=>a+b,0))}</td>
-    <td class="mono">${Math.round(sumShares).toLocaleString('es-ES')}</td>
+    <td class="mono">${fmtCount(Math.round(sumShares))}</td>
     <td class="mono">${eur(sumInvest)}</td>
     <td class="mono">${eur(sumNet)}</td>
     <td class="mono">${eur(sumNet/4)}</td>
@@ -1372,12 +1420,19 @@ function render(){
     <div class="summary-cell">
       <div class="s-label">Months with a payout</div>
       <div class="s-value">${monthsPaying} / 12</div>
-      <div class="s-sub">${Math.round(sumNet/12).toLocaleString('es-ES')} € avg / month</div>
+      <div class="s-sub">${eur(sumNet/12)} avg / month</div>
     </div>
   `;
 }
 
 // ---- wire up ----
+populateCurrencySelect();
+updateCurrencyLabels();
+document.getElementById('currencySelect').addEventListener('change', e=>{
+  currentCurrency = e.target.value;
+  updateCurrencyLabels();
+  render();
+});
 document.getElementById('btnFlat').addEventListener('click',()=>{
   taxMode='flat';
   document.getElementById('btnFlat').classList.add('active');
