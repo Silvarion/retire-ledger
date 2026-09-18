@@ -105,13 +105,14 @@
     margin-bottom:10px;
   }
   .money-input{
-    display:flex;align-items:baseline;gap:6px;
+    display:flex;flex-direction:column;align-items:stretch;gap:4px;
   }
   .money-input span{font-family:'Fraunces',serif;font-size:22px;color:var(--gold);}
   .money-input select.currency-select{
-    width:auto;margin:0;padding:0 4px 0 0;
+    align-self:flex-start;
+    width:auto;max-width:100%;margin:0;padding:2px 4px;
     background:transparent;border:none;outline:none;
-    font-family:'Fraunces',serif;font-size:20px;color:var(--gold);
+    font-family:'Fraunces',serif;font-size:15px;color:var(--gold);
     cursor:pointer;
   }
   .money-input input{
@@ -216,6 +217,22 @@
     border:1px solid rgba(193,99,58,0.4);background:rgba(193,99,58,0.08);
     padding:1px 6px;border-radius:4px;margin-bottom:8px;font-family:'Inter',sans-serif;
   }
+
+  .schedule-toggle-btn{
+    background:none;border:none;color:var(--text-faint);
+    font-size:10px;font-family:'IBM Plex Mono',monospace;letter-spacing:.02em;
+    cursor:pointer;padding:0;margin-top:4px;text-decoration:underline;text-decoration-style:dotted;
+  }
+  .schedule-toggle-btn:hover{color:var(--gold);}
+  .schedule-row td{background:var(--panel-alt);white-space:normal;padding:10px 14px 14px;}
+  .schedule-table{width:100%;border-collapse:collapse;font-size:12px;}
+  .schedule-table th{
+    text-align:left;font-family:'IBM Plex Mono',monospace;font-size:9.5px;
+    letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);
+    padding:4px 10px 4px 0;
+  }
+  .schedule-table td{padding:3px 10px 3px 0;font-family:'IBM Plex Mono',monospace;color:var(--text-dim);}
+  .schedule-empty{font-size:11.5px;color:var(--text-faint);}
 
   /* ---- editable fund cell ---- */
   .fund-cell{min-width:240px;white-space:normal;}
@@ -322,6 +339,7 @@
     padding:9px 12px;border-radius:7px;outline:none;
   }
   .search-type-toggle{display:flex;gap:8px;}
+  .search-type-toggle + .search-type-toggle{margin-top:8px;}
   .search-type-btn{
     background:var(--panel-alt);border:1px solid var(--border);color:var(--text-dim);
     padding:6px 14px;border-radius:7px;font-size:12px;font-family:'Inter',sans-serif;
@@ -329,12 +347,12 @@
   }
   .search-type-btn.active{background:var(--gold-soft);border-color:var(--gold);color:var(--gold);font-weight:600;}
   .asset-type-toggle{display:flex;gap:4px;margin-bottom:8px;}
-  .asset-type-btn{
+  .asset-type-btn, .datasource-btn{
     background:var(--panel-alt);border:1px solid var(--border);color:var(--text-faint);
     padding:2px 8px;border-radius:5px;font-size:9.5px;font-family:'IBM Plex Mono',monospace;
     cursor:pointer;text-transform:uppercase;letter-spacing:.03em;
   }
-  .asset-type-btn.active{background:var(--gold-soft);border-color:var(--gold);color:var(--gold);}
+  .asset-type-btn.active, .datasource-btn.active{background:var(--gold-soft);border-color:var(--gold);color:var(--gold);}
   .search-row input[type=text]:focus{border-color:var(--gold);}
   .search-hint{font-size:11px;color:var(--text-faint);margin-top:8px;}
   .search-results{margin-top:12px;display:flex;flex-direction:column;gap:1px;}
@@ -504,20 +522,25 @@
 
   <div class="live-controls">
     <input type="password" id="eulerpoolKey" placeholder="Eulerpool API key — kept in this tab's memory only, never saved" autocomplete="off">
+    <input type="password" id="twelveDataKey" placeholder="Twelve Data API key — kept in this tab's memory only, never saved" autocomplete="off">
     <button class="refresh-btn" id="refreshBtn">Refresh live prices</button>
-    <div class="live-hint">Fetches by ISIN, per fund, from Eulerpool. Funds with no ISIN filled in below are skipped and keep their manual price. Data by Eulerpool.</div>
+    <div class="live-hint">Each fund remembers which of the two providers it was added from (shown next to its live-price status) and refreshes from that one. Eulerpool covers European UCITS ETFs well; Twelve Data has broader global/US stock coverage and a higher free-tier limit. Funds with no ISIN/ticker filled in below are skipped and keep their manual price.</div>
   </div>
 
   <div class="search-box">
+    <div class="search-type-toggle" id="searchProviderToggle">
+      <button type="button" class="search-type-btn active" data-provider="eulerpool">Eulerpool</button>
+      <button type="button" class="search-type-btn" data-provider="twelvedata">Twelve Data</button>
+    </div>
     <div class="search-type-toggle" id="searchTypeToggle">
       <button type="button" class="search-type-btn active" data-type="etf">ETF</button>
       <button type="button" class="search-type-btn" data-type="stock">Stock</button>
     </div>
     <div class="search-row">
-      <input type="text" id="fundSearch" placeholder="Paste an ISIN (most reliable) or try a name/ticker…" autocomplete="off">
+      <input type="text" id="fundSearch" placeholder="Paste an ISIN (most reliable, Eulerpool only) or try a name/ticker…" autocomplete="off">
       <button class="refresh-btn" id="searchBtn">Search</button>
     </div>
-    <div class="search-hint" id="searchHint">Pasting an ISIN tries the matching endpoint first for whichever type is selected above (falls back to the other type's endpoint if that one 404s). A name or ticker instead falls back to a best-effort search call whose exact path isn't confirmed — check the debug panel if it comes up empty. Requires the API key above.</div>
+    <div class="search-hint" id="searchHint">Eulerpool: pasting an ISIN tries the matching endpoint first for whichever type is selected above (falls back to the other type's endpoint if that one 404s); a name/ticker falls back to a best-effort search call whose exact path isn't confirmed — check the debug panel if it comes up empty. Twelve Data: searches by name/ticker only (no ISIN support) via its symbol_search endpoint. Requires that provider's API key above.</div>
     <div class="search-results" id="searchResults"></div>
   </div>
 
@@ -592,7 +615,7 @@
   </p>
   <p class="data-attribution offline" id="dataAttribution">
     <span class="dot"></span>
-    <span id="dataAttributionText">Manual prices — live data by <a href="https://eulerpool.com" target="_blank" rel="noopener">Eulerpool</a> not yet connected</span>
+    <span id="dataAttributionText">Manual prices — live data by <a href="https://eulerpool.com" target="_blank" rel="noopener">Eulerpool</a>/<a href="https://twelvedata.com" target="_blank" rel="noopener">Twelve Data</a> not yet connected</span>
   </p>
 </footer>
 
@@ -840,6 +863,31 @@ function buildWeightsUI(){
   });
 }
 
+// The identifier a fund's CURRENT data source actually fetches by — ISIN for
+// Eulerpool, ticker symbol (reusing the existing "code" field) for Twelve Data.
+function liveStatusPlaceholder(f){
+  if((f.dataSource||'eulerpool')==='twelvedata'){
+    return f.code ? 'not fetched yet' : 'no ticker — manual';
+  }
+  return f.isin ? 'not fetched yet' : 'no ISIN — manual';
+}
+
+function renderScheduleTable(f){
+  const records = f.paymentHistory;
+  if(!records || records.length===0){
+    return `<div class="schedule-empty">No payment history fetched yet — set an ISIN/ticker above and click "Refresh live prices".</div>`;
+  }
+  const rows = records.slice(0,12).map(r=>`
+    <tr><td>${r.date?esc(String(r.date).slice(0,10)):'—'}</td><td>${eur2(r.amount)}</td></tr>
+  `).join('');
+  return `
+    <table class="schedule-table">
+      <thead><tr><th>Date</th><th>Amount / share</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
 function buildFundBody(){
   document.getElementById('fundBody').innerHTML = FUNDS.map(f=>`
     <tr>
@@ -855,14 +903,19 @@ function buildFundBody(){
           <button type="button" class="asset-type-btn ${f.assetType!=='stock'?'active':''}" data-id="${f.id}" data-type="etf">ETF</button>
           <button type="button" class="asset-type-btn ${f.assetType==='stock'?'active':''}" data-id="${f.id}" data-type="stock">Stock</button>
         </div>
+        <div class="asset-type-toggle" data-id="${f.id}" style="margin-top:4px;">
+          <button type="button" class="datasource-btn ${(f.dataSource||'eulerpool')!=='twelvedata'?'active':''}" data-id="${f.id}" data-source="eulerpool" title="Fetch this fund's live price/dividends from Eulerpool">Eulerpool</button>
+          <button type="button" class="datasource-btn ${f.dataSource==='twelvedata'?'active':''}" data-id="${f.id}" data-source="twelvedata" title="Fetch this fund's live price/dividends from Twelve Data">Twelve Data</button>
+        </div>
         ${f.flagCode?`<div class="flag" title="Public data listed this ETF under ticker ${esc(f.flagCode)} (ISIN DE000A0F5UJ7)">ticker check: ${esc(f.flagCode)}?</div>`:''}
         <div class="month-picker">
           ${MONTH_NAMES.map((mn,idx)=>`<button type="button" class="month-chip ${f.months.includes(idx+1)?'on':''}" data-id="${f.id}" data-m="${idx+1}" title="${mn}">${mn[0]}</button>`).join('')}
         </div>
+        <button type="button" class="schedule-toggle-btn" data-id="${f.id}">Payment schedule ▾</button>
       </td>
       <td class="price-cell">
         <input type="number" id="price-${f.id}" value="${f.price}" step="0.01" min="0.01">
-        <div class="live-status"><span class="live-dot" id="livedot-${f.id}"></span><span id="livetext-${f.id}">${f.isin?'not fetched yet':'no ISIN — manual'}</span></div>
+        <div class="live-status"><span class="live-dot" id="livedot-${f.id}"></span><span id="livetext-${f.id}">${liveStatusPlaceholder(f)}</span></div>
       </td>
       <td><input type="number" id="divps-${f.id}" value="${f.div}" step="0.01" min="0"></td>
       <td class="mono yield-${f.id}"></td>
@@ -872,6 +925,9 @@ function buildFundBody(){
       <td class="mono invest-${f.id}"></td>
       <td class="mono netinc-${f.id}"></td>
       <td class="mono netq-${f.id}"></td>
+    </tr>
+    <tr class="schedule-row" id="schedulerow-${f.id}" style="display:none;">
+      <td colspan="10" id="scheduletable-${f.id}"></td>
     </tr>
   `).join('');
 
@@ -883,12 +939,14 @@ function buildFundBody(){
       f.code = e.target.value;
       const lbl = document.getElementById('wclabel-'+f.id);
       if(lbl) lbl.textContent = f.code;
+      const txt = document.getElementById('livetext-'+f.id);
+      if(txt) txt.textContent = liveStatusPlaceholder(f);
       render();
     });
     document.getElementById('isin-'+f.id).addEventListener('input', e=>{
       f.isin = e.target.value.trim().toUpperCase();
       const txt = document.getElementById('livetext-'+f.id);
-      if(txt) txt.textContent = f.isin ? 'not fetched yet' : 'no ISIN — manual';
+      if(txt) txt.textContent = liveStatusPlaceholder(f);
     });
   });
   document.querySelectorAll('.asset-type-btn').forEach(btn=>{
@@ -899,6 +957,34 @@ function buildFundBody(){
       document.querySelectorAll(`.asset-type-btn[data-id="${id}"]`).forEach(b=>{
         b.classList.toggle('active', b.dataset.type===f.assetType);
       });
+    });
+  });
+  document.querySelectorAll('.datasource-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = btn.dataset.id;
+      const f = FUNDS.find(x=>x.id===id);
+      f.dataSource = btn.dataset.source;
+      document.querySelectorAll(`.datasource-btn[data-id="${id}"]`).forEach(b=>{
+        b.classList.toggle('active', b.dataset.source===f.dataSource);
+      });
+      const txt = document.getElementById('livetext-'+id);
+      if(txt) txt.textContent = liveStatusPlaceholder(f);
+    });
+  });
+  document.querySelectorAll('.schedule-toggle-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = btn.dataset.id;
+      const f = FUNDS.find(x=>x.id===id);
+      const row = document.getElementById('schedulerow-'+id);
+      const showing = row.style.display!=='none';
+      if(showing){
+        row.style.display='none';
+        btn.textContent='Payment schedule ▾';
+      } else {
+        document.getElementById('scheduletable-'+id).innerHTML = renderScheduleTable(f);
+        row.style.display='table-row';
+        btn.textContent='Payment schedule ▴';
+      }
     });
   });
   document.querySelectorAll('.month-chip').forEach(btn=>{
@@ -957,12 +1043,13 @@ function setLiveStatus(id, status, text){
 function updateAttribution(anyOk){
   const wrap = document.getElementById('dataAttribution');
   const txt = document.getElementById('dataAttributionText');
+  const links = `<a href="https://eulerpool.com" target="_blank" rel="noopener">Eulerpool</a>/<a href="https://twelvedata.com" target="_blank" rel="noopener">Twelve Data</a>`;
   if(anyOk){
     wrap.classList.remove('offline');
-    txt.innerHTML = `Live prices via <a href="https://eulerpool.com" target="_blank" rel="noopener">Eulerpool</a> (delayed data) — last refreshed ${new Date().toLocaleTimeString('es-ES')}`;
+    txt.innerHTML = `Live prices via each fund's own provider (${links}, delayed data) — last refreshed ${new Date().toLocaleTimeString('es-ES')}`;
   } else {
     wrap.classList.add('offline');
-    txt.innerHTML = `Manual prices — live data by <a href="https://eulerpool.com" target="_blank" rel="noopener">Eulerpool</a> not yet connected`;
+    txt.innerHTML = `Manual prices — live data by ${links} not yet connected`;
   }
 }
 
@@ -1071,37 +1158,55 @@ async function fetchDistributions(isin, type){
   return { ok:false, json:null, endpoint:null, attempts, isArrayResponse:false };
 }
 
-// Sums the most recent 4 distribution records to get a trailing-12-month
-// dividend/share figure. Tries several plausible field names for amount/date
-// since we don't have confirmed docs for this endpoint's exact shape.
+// Shared by every provider: given a raw records array and a list of candidate
+// amount/date field names (each provider uses different ones), normalizes to
+// plain {date, amount} pairs sorted newest-first, sums the most recent 4 for a
+// trailing-12-month dividend/share figure, AND keeps the full normalized list
+// for the per-fund payment-schedule table (renderScheduleTable()) — the two
+// features share this one pass over the data instead of two separate ones.
+function normalizeDividendRecords(records, amountFields, dateFields){
+  if(!records || records.length===0) return null;
+  let amountKey=null, dateKey=null;
+  for(const k of amountFields){
+    const v = records[0][k];
+    if(typeof v==='number' || (typeof v==='string' && v!=='' && !isNaN(parseFloat(v)))){ amountKey=k; break; }
+  }
+  for(const k of dateFields){ if(records[0][k]!==undefined){ dateKey=k; break; } }
+  if(!amountKey) return null;
+
+  const normalized = records
+    .map(r=>({ date: dateKey ? r[dateKey] : null, amount: typeof r[amountKey]==='number' ? r[amountKey] : parseFloat(r[amountKey]) }))
+    .filter(r=>typeof r.amount==='number' && !isNaN(r.amount));
+  if(normalized.length===0) return null;
+  if(dateKey){
+    normalized.sort((a,b)=> new Date(b.date) - new Date(a.date));
+  }
+  const recent = normalized.slice(0,4);
+  const sum = recent.reduce((s,r)=>s+r.amount, 0);
+  if(sum<=0) return null;
+  return { value: sum, count: recent.length, records: normalized };
+}
+
+// Tries several plausible field names for amount/date since we don't have
+// confirmed docs for Eulerpool's distributions endpoint's exact shape.
 function extractAnnualDividend(json){
   let records = null;
   if(Array.isArray(json)) records = json;
   else if(json && Array.isArray(json.distributions)) records = json.distributions;
   else if(json && Array.isArray(json.data)) records = json.data;
   else if(json && Array.isArray(json.dividends)) records = json.dividends;
-  if(!records || records.length===0) return null;
-
-  const amountFields = ['amount','value','dividend','distribution','payout','cashAmount'];
-  const dateFields = ['date','payDate','exDate','paymentDate','recordDate'];
-  let amountKey=null, dateKey=null;
-  for(const k of amountFields){ if(typeof records[0][k]==='number'){ amountKey=k; break; } }
-  for(const k of dateFields){ if(records[0][k]!==undefined){ dateKey=k; break; } }
-  if(!amountKey) return null;
-
-  let sorted = records.slice();
-  if(dateKey){
-    sorted.sort((a,b)=> new Date(b[dateKey]) - new Date(a[dateKey]));
-  }
-  const recent = sorted.slice(0,4);
-  const sum = recent.reduce((s,r)=> s + (typeof r[amountKey]==='number'?r[amountKey]:0), 0);
-  if(sum<=0) return null;
-  return { value: sum, count: recent.length, amountKey, dateKey };
+  return normalizeDividendRecords(records,
+    ['amount','value','dividend','distribution','payout','cashAmount'],
+    ['date','payDate','exDate','paymentDate','recordDate']);
 }
 
-// Fetches one fund's price AND trailing dividend/share by ISIN.
+// Fetches one fund's price AND trailing dividend/share from Eulerpool by ISIN.
 // Returns true if at least one of the two was applied live.
-async function fetchOneFundPrice(f){
+async function fetchOneFundPriceEulerpool(f){
+  if(!eulerpoolKey){
+    setLiveStatus(f.id, '', 'no Eulerpool key — paste it above');
+    return false;
+  }
   if(!f.isin){
     setLiveStatus(f.id, '', 'no ISIN — manual');
     return false;
@@ -1131,6 +1236,7 @@ async function fetchOneFundPrice(f){
     const div = extractAnnualDividend(divResult.json);
     if(div){
       f.div = Math.round(div.value*10000)/10000;
+      f.paymentHistory = div.records;
       const divEl = document.getElementById('divps-'+f.id);
       if(divEl) divEl.value = f.div;
       divMsg = `div ${currencySymbol(currentCurrency)}${f.div.toFixed(2)}/yr (sum of last ${div.count})`;
@@ -1148,9 +1254,108 @@ async function fetchOneFundPrice(f){
   return anyOk;
 }
 
+// ---- Twelve Data live price fetch ----
+// api.twelvedata.com — confirmed live (2026-09) to be CORS-enabled and to
+// include dividend history on its free tier, unlike several alternatives
+// checked at the same time (EODHD has broader exchange coverage but sends no
+// Access-Control-Allow-Origin header at all, so it can't be called from a
+// static site with no backend proxy; IEX Cloud shut down entirely in 2024).
+// Twelve Data returns HTTP 200 even on a bad symbol/key/rate-limit — the only
+// way to detect failure is this {status:"error"} body shape.
+let twelveDataKey = '';
+function isTwelveDataError(json){
+  return !json || json.status==='error' || (typeof json.code==='number' && json.code>=400);
+}
+
+async function fetchTwelveDataPrice(symbol){
+  const url = `https://api.twelvedata.com/price?symbol=${encodeURIComponent(symbol)}&apikey=${encodeURIComponent(twelveDataKey)}`;
+  const res = await fetch(url);
+  const raw = await res.text();
+  let json = null;
+  try{ json = JSON.parse(raw); } catch(e){ /* not JSON */ }
+  const attempts = [{ endpoint:'price', status: res.status, raw }];
+  if(res.ok && json && !isTwelveDataError(json) && json.price!==undefined){
+    const value = parseFloat(json.price);
+    if(!isNaN(value)) return { ok:true, value, attempts };
+  }
+  return { ok:false, value:null, attempts, error: json && json.message };
+}
+
+async function fetchTwelveDataDividends(symbol){
+  const url = `https://api.twelvedata.com/dividends?symbol=${encodeURIComponent(symbol)}&apikey=${encodeURIComponent(twelveDataKey)}`;
+  const res = await fetch(url);
+  const raw = await res.text();
+  let json = null;
+  try{ json = JSON.parse(raw); } catch(e){ /* not JSON */ }
+  const attempts = [{ endpoint:'dividends', status: res.status, raw }];
+  if(res.ok && json && !isTwelveDataError(json)){
+    const div = normalizeDividendRecords(json.dividends, ['amount'], ['ex_date','payment_date']);
+    if(div) return { ok:true, div, attempts };
+  }
+  return { ok:false, div:null, attempts, error: json && json.message };
+}
+
+// Twelve Data has no ISIN lookup (confirmed against its docs) — funds sourced
+// from it are identified by ticker symbol, reusing the existing "code" field
+// (which already holds a ticker-like value for every fund, Eulerpool-sourced
+// or not) rather than adding a whole separate field just for this provider.
+async function fetchOneFundPriceTwelveData(f){
+  if(!twelveDataKey){
+    setLiveStatus(f.id, '', 'no Twelve Data key — paste it above');
+    return false;
+  }
+  if(!f.code){
+    setLiveStatus(f.id, '', 'no ticker — manual');
+    return false;
+  }
+  setLiveStatus(f.id, '', 'fetching…');
+
+  const priceResult = await fetchTwelveDataPrice(f.code);
+  logAttempts(f.code+' [price, Twelve Data]', f.code, { attempts: priceResult.attempts, ok: priceResult.ok, isArrayResponse:false, json: priceResult.ok?{price:priceResult.value}:null, endpoint:'price' });
+
+  const divResult = await fetchTwelveDataDividends(f.code);
+  logAttempts(f.code+' [dividends, Twelve Data]', f.code, { attempts: divResult.attempts, ok: divResult.ok, isArrayResponse:'distributions', json: divResult.ok?divResult.div:null, endpoint:'dividends' });
+
+  let priceMsg = null, divMsg = null, anyOk = false;
+
+  if(priceResult.ok){
+    f.price = priceResult.value;
+    const priceEl = document.getElementById('price-'+f.id);
+    if(priceEl) priceEl.value = f.price;
+    priceMsg = `price ${currencySymbol(currentCurrency)}${f.price}`;
+    anyOk = true;
+  }
+
+  if(divResult.ok){
+    f.div = Math.round(divResult.div.value*10000)/10000;
+    f.paymentHistory = divResult.div.records;
+    const divEl = document.getElementById('divps-'+f.id);
+    if(divEl) divEl.value = f.div;
+    divMsg = `div ${currencySymbol(currentCurrency)}${f.div.toFixed(2)}/yr (sum of last ${divResult.div.count})`;
+    anyOk = true;
+  }
+
+  if(priceMsg || divMsg){
+    setLiveStatus(f.id, priceMsg ? 'ok' : 'warn', [priceMsg, divMsg].filter(Boolean).join(' · '));
+  } else {
+    setLiveStatus(f.id, 'err', `${priceResult.error || divResult.error || 'no price or dividend data found'} — see debug panel`);
+  }
+  return anyOk;
+}
+
+// Fetches one fund's price + dividends from whichever provider it's set to
+// use (per-fund choice — see the Eulerpool/Twelve Data toggle in each fund
+// row, default 'eulerpool' for backward compatibility with funds/saved
+// configs from before this toggle existed).
+async function fetchOneFundPrice(f){
+  return (f.dataSource||'eulerpool')==='twelvedata'
+    ? fetchOneFundPriceTwelveData(f)
+    : fetchOneFundPriceEulerpool(f);
+}
+
 async function fetchLivePrices(){
-  if(!eulerpoolKey){
-    logDebug('No API key entered — paste it into the field above first.');
+  if(!eulerpoolKey && !twelveDataKey){
+    logDebug('No API key entered for either provider — paste at least one into the fields above first.');
     return;
   }
   const btn = document.getElementById('refreshBtn');
@@ -1200,7 +1405,7 @@ async function lookupByIsin(isin, resultsEl){
     const id = 'f'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
     const color = PALETTE[FUNDS.length % PALETTE.length];
     const evenWeight = Math.round(100/(FUNDS.length+1));
-    const newFund = { id, name, code: isin.slice(0,4), isin, assetType: searchType, color, price:10, div:0.30, months:[3,6,9,12], weight:evenWeight };
+    const newFund = { id, name, code: isin.slice(0,4), isin, assetType: searchType, dataSource:'eulerpool', color, price:10, div:0.30, months:[3,6,9,12], weight:evenWeight };
     FUNDS.push(newFund);
     rebuildAll();
     await fetchOneFundPrice(newFund);
@@ -1210,16 +1415,102 @@ async function lookupByIsin(isin, resultsEl){
   });
 }
 
+// ---- Twelve Data search ----
+// No ISIN support (confirmed against Twelve Data's own docs) — always goes
+// through symbol_search, keyed by name/ticker only. Response shape confirmed
+// live against a real demo key: {data: [{symbol, instrument_name, exchange,
+// currency, instrument_type, country}, ...]}.
+async function searchTwelveData(qRaw, resultsEl){
+  if(!twelveDataKey){
+    resultsEl.innerHTML = `<div class="search-status">Enter your Twelve Data API key above first.</div>`;
+    return;
+  }
+  const btn = document.getElementById('searchBtn');
+  btn.disabled = true;
+  btn.textContent = 'Searching…';
+  resultsEl.innerHTML = `<div class="search-status">Searching…</div>`;
+
+  try{
+    const res = await fetch(`https://api.twelvedata.com/symbol_search?symbol=${encodeURIComponent(qRaw)}&apikey=${encodeURIComponent(twelveDataKey)}`);
+    const raw = await res.text();
+    let json = null;
+    try{ json = JSON.parse(raw); } catch(e){ /* not JSON */ }
+    logDebug(`Twelve Data search "${qRaw}" →\n${raw.slice(0,1500)}`);
+
+    if(!res.ok || !json || isTwelveDataError(json)){
+      resultsEl.innerHTML = `<div class="search-status">Search failed${json && json.message ? ': '+esc(json.message) : ` (HTTP ${res.status})`}. See debug panel.</div>`;
+      return;
+    }
+    const items = Array.isArray(json.data) ? json.data : [];
+    if(items.length===0){
+      resultsEl.innerHTML = `<div class="search-status">No matches for "${esc(qRaw)}".</div>`;
+      return;
+    }
+    resultsEl.innerHTML = items.slice(0,8).map((item,idx)=>{
+      const name = item.instrument_name || item.symbol || 'Unknown';
+      const meta = [item.symbol, item.exchange, item.instrument_type, item.currency].filter(Boolean).map(esc).join(' · ');
+      return `
+        <div class="search-result-row">
+          <div class="search-result-info">
+            <div class="search-result-name">${esc(name)}</div>
+            <div class="search-result-meta">${meta}</div>
+          </div>
+          <button type="button" class="search-add-btn" data-idx="${idx}" title="Add this fund" ${item.symbol?'':'disabled'}>+</button>
+        </div>
+      `;
+    }).join('');
+
+    resultsEl.querySelectorAll('.search-add-btn').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const item = items[parseInt(btn.dataset.idx,10)];
+        if(!item.symbol) return;
+        const id = 'f'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+        const color = PALETTE[FUNDS.length % PALETTE.length];
+        const evenWeight = Math.round(100/(FUNDS.length+1));
+        const newFund = {
+          id,
+          name: item.instrument_name || item.symbol,
+          code: item.symbol,
+          isin: '',
+          assetType: (item.instrument_type||'').toLowerCase().includes('etf') ? 'etf' : 'stock',
+          dataSource: 'twelvedata',
+          color, price:10, div:0.30, months:[3,6,9,12], weight:evenWeight
+        };
+        FUNDS.push(newFund);
+        rebuildAll();
+        await fetchOneFundPrice(newFund);
+        render();
+        document.getElementById('fundSearch').value = '';
+        resultsEl.innerHTML = `<div class="search-status">Added ${esc(newFund.code)} — scroll down to fill in its dividend/share and payout months.</div>`;
+      });
+    });
+  } catch(err){
+    resultsEl.innerHTML = `<div class="search-status">Search request failed: ${esc(err.message)} — most likely CORS. See debug panel.</div>`;
+    logDebug(`Twelve Data search "${qRaw}" → fetch failed: ${err.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Search';
+  }
+}
+
 // ---- Instrument search ----
 // If the query looks like an ISIN, we skip the (unverified) name-search endpoint
-// entirely and look it up directly by ISIN — much more reliable.
+// entirely and look it up directly by ISIN — much more reliable. Eulerpool only;
+// Twelve Data has no ISIN support at all.
 const ISIN_RE = /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/;
+let searchProvider = 'eulerpool'; // 'eulerpool' | 'twelvedata'
 
 async function searchInstruments(){
   const qRaw = document.getElementById('fundSearch').value.trim();
   const q = qRaw.toUpperCase();
   const resultsEl = document.getElementById('searchResults');
   if(!qRaw) return;
+
+  if(searchProvider==='twelvedata'){
+    await searchTwelveData(qRaw, resultsEl);
+    return;
+  }
+
   if(!eulerpoolKey){
     resultsEl.innerHTML = `<div class="search-status">Enter your Eulerpool API key above first.</div>`;
     return;
@@ -1289,7 +1580,7 @@ async function searchInstruments(){
           id,
           name: item.name || item.longName || item.company || item.symbol || 'New fund',
           code: item.symbol || item.ticker || 'TICK',
-          isin, assetType: searchType,
+          isin, assetType: searchType, dataSource:'eulerpool',
           color, price:10, div:0.30, months:[3,6,9,12], weight:evenWeight
         };
         FUNDS.push(newFund);
@@ -1330,6 +1621,7 @@ function collectConfig(){
     allocMode: document.getElementById('allocMode').value,
     funds: FUNDS.map(f=>({
       id:f.id, name:f.name, code:f.code, isin:f.isin||'', assetType:f.assetType||'etf', flagCode:f.flagCode||undefined,
+      dataSource:f.dataSource||'eulerpool', paymentHistory:f.paymentHistory||undefined,
       color:f.color, price:f.price, div:f.div, months:f.months.slice(), weight:f.weight
     }))
   };
@@ -1346,6 +1638,8 @@ function applyConfig(cfg){
     isin: f.isin || '',
     assetType: (f.assetType==='stock') ? 'stock' : 'etf',
     flagCode: f.flagCode || undefined,
+    dataSource: f.dataSource==='twelvedata' ? 'twelvedata' : 'eulerpool',
+    paymentHistory: Array.isArray(f.paymentHistory) ? f.paymentHistory : undefined,
     color: f.color || PALETTE[i % PALETTE.length],
     price: typeof f.price==='number' ? f.price : 10,
     div: typeof f.div==='number' ? f.div : 0,
@@ -1628,12 +1922,22 @@ document.getElementById('uploadConfigInput').addEventListener('change', (e)=>{
   e.target.value = '';
 });
 document.getElementById('eulerpoolKey').addEventListener('input', e=>{ eulerpoolKey = e.target.value.trim(); });
+document.getElementById('twelveDataKey').addEventListener('input', e=>{ twelveDataKey = e.target.value.trim(); });
 document.getElementById('refreshBtn').addEventListener('click', fetchLivePrices);
 document.getElementById('searchBtn').addEventListener('click', searchInstruments);
-document.querySelectorAll('.search-type-btn').forEach(btn=>{
+// Scoped to each toggle's own container — both use the shared .search-type-btn
+// class for identical styling, but a global querySelectorAll('.search-type-btn')
+// would incorrectly deactivate the OTHER toggle's active button too.
+document.querySelectorAll('#searchTypeToggle .search-type-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     searchType = btn.dataset.type;
-    document.querySelectorAll('.search-type-btn').forEach(b=>b.classList.toggle('active', b===btn));
+    document.querySelectorAll('#searchTypeToggle .search-type-btn').forEach(b=>b.classList.toggle('active', b===btn));
+  });
+});
+document.querySelectorAll('#searchProviderToggle .search-type-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    searchProvider = btn.dataset.provider;
+    document.querySelectorAll('#searchProviderToggle .search-type-btn').forEach(b=>b.classList.toggle('active', b===btn));
   });
 });
 document.getElementById('fundSearch').addEventListener('keydown', e=>{
