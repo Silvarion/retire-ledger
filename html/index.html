@@ -567,7 +567,7 @@
       <input type="text" id="fundSearch" placeholder="Paste an ISIN (most reliable, Eulerpool only) or try a name/ticker…" autocomplete="off">
       <button class="refresh-btn" id="searchBtn">Search</button>
     </div>
-    <div class="search-hint" id="searchHint">Eulerpool: pasting an ISIN tries the matching endpoint first for whichever type is selected above (falls back to the other type's endpoint if that one 404s); a name/ticker falls back to a best-effort search call whose exact path isn't confirmed — check the debug panel if it comes up empty. Twelve Data: searches by name/ticker only (no ISIN support) via its symbol_search endpoint. Requires that provider's API key above.</div>
+    <div class="search-hint" id="searchHint">Eulerpool: pasting an ISIN tries the matching endpoint first for whichever type is selected above (falls back to the other type's endpoint if that one 404s); a name/ticker instead searches Eulerpool's stock screener — confirmed against their real API docs, but its ETF coverage isn't confirmed either way, so an empty result for an ETF may just mean try ISIN or Twelve Data instead. Twelve Data: searches by name/ticker only (no ISIN support) via its symbol_search endpoint. Requires that provider's API key above.</div>
     <div class="search-results" id="searchResults"></div>
   </div>
 
@@ -1521,10 +1521,13 @@ async function searchTwelveData(qRaw, resultsEl){
 }
 
 // ---- Instrument search ----
-// If the query looks like an ISIN, we skip the (unverified) name-search endpoint
-// entirely and look it up directly by ISIN — much more reliable. Eulerpool only;
-// Twelve Data has no ISIN support at all.
+// If the query looks like an ISIN, we skip the search endpoint entirely and look it
+// up directly by ISIN — much more reliable. Eulerpool only; Twelve Data has no ISIN
+// support at all.
 const ISIN_RE = /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/;
+// A short, all-caps/dotted string reads as a ticker (AAPL, BRK.B); anything else is
+// treated as a company/fund name. Used to pick which field the screener filters on.
+const TICKER_LIKE_RE = /^[A-Z0-9.]{1,6}$/;
 let searchProvider = 'eulerpool'; // 'eulerpool' | 'twelvedata'
 
 async function searchInstruments(){
@@ -1553,20 +1556,36 @@ async function searchInstruments(){
   btn.textContent = 'Searching…';
   resultsEl.innerHTML = `<div class="search-status">Searching…</div>`;
 
+  // The screener is Eulerpool's real, documented search mechanism (confirmed live
+  // against eulerpool.com/developers/api/screener/screen, 2026-09-19) — a POST with a
+  // JSON filters array, NOT the GET .../search?query= this code used to call (that
+  // endpoint doesn't exist at all in Eulerpool's real API, hence the 404 that prompted
+  // this fix). Its own docs page is titled "Stock Screener" and its response fields
+  // (sector/industry/marketCap) read as equity-shaped — ETF coverage through this same
+  // endpoint is NOT confirmed either way, so an empty result for an ETF-sounding query
+  // is genuinely ambiguous (no ETFs match vs. ETFs aren't in this screener's universe
+  // at all) rather than a bug; ISIN-direct lookup (still ETF-confirmed via etf/profile)
+  // or Twelve Data's search are the reliable fallbacks for that case.
+  const filterField = TICKER_LIKE_RE.test(q) ? 'ticker' : 'name';
   try{
-    const res = await fetch(`https://api.eulerpool.com/api/1/search?query=${encodeURIComponent(qRaw)}&type=${encodeURIComponent(searchType)}&token=${encodeURIComponent(eulerpoolKey)}`);
+    const res = await fetch(`https://api.eulerpool.com/api/1/screener/screen?token=${encodeURIComponent(eulerpoolKey)}`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ filters:[{ id:filterField, value:qRaw, equality:'LIKE' }], size:8 })
+    });
     const raw = await res.text();
     let json = null;
     try{ json = JSON.parse(raw); } catch(e){ /* not JSON */ }
 
-    logDebug(`search "${qRaw}" →\n${raw.slice(0,1500)}`);
+    logDebug(`screener search "${qRaw}" (filter: ${filterField} LIKE) →\n${raw.slice(0,1500)}`);
 
     if(!res.ok){
-      resultsEl.innerHTML = `<div class="search-status">Search failed (HTTP ${res.status}). This endpoint's exact path wasn't confirmed from Eulerpool's docs — check the debug panel, and if you find the right one, tell me and I'll fix the call.</div>`;
+      resultsEl.innerHTML = `<div class="search-status">Search failed (HTTP ${res.status}). See debug panel for the raw response.</div>`;
       return;
     }
 
-    // Try a few plausible shapes for the results array.
+    // Confirmed shape is a plain array; the other fallbacks are defensive in case a
+    // future API version wraps it (matching this app's usual "don't assume" caution).
     let items = null;
     if(Array.isArray(json)) items = json;
     else if(json && Array.isArray(json.results)) items = json.results;
@@ -1574,7 +1593,7 @@ async function searchInstruments(){
     else if(json && Array.isArray(json.items)) items = json.items;
 
     if(!items || items.length===0){
-      resultsEl.innerHTML = `<div class="search-status">No results parsed from the response. Open the debug panel to see the raw JSON — the field names may just need mapping.</div>`;
+      resultsEl.innerHTML = `<div class="search-status">No matches. If you're searching for an ETF, this screener's ETF coverage isn't confirmed — try pasting the ISIN directly instead, or search via Twelve Data.</div>`;
       return;
     }
 
