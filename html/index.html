@@ -897,6 +897,9 @@ function liveStatusPlaceholder(f){
 function renderScheduleTable(f){
   const records = f.paymentHistory;
   if(!records || records.length===0){
+    if((f.dataSource||'eulerpool')==='eulerpool' && (f.assetType||'etf')!=='stock'){
+      return `<div class="schedule-empty">Eulerpool has no per-payment distribution-history endpoint for ETFs — the div/share figure above (if fetched) is an estimate derived from yield × price, not a real schedule. Switch this fund's data source to Twelve Data above for an actual payment schedule, or check the fund's factsheet directly.</div>`;
+    }
     return `<div class="schedule-empty">No payment history fetched yet — set an ISIN/ticker above and click "Refresh live prices".</div>`;
   }
   const rows = records.slice(0,12).map(r=>`
@@ -1080,25 +1083,21 @@ function updateAttribution(anyOk){
   }
 }
 
-// Tries a sequence of endpoints for a given ISIN, since different instrument
-// types live under different paths (confirmed: ETFs -> etf/holdings, not equity/overview).
-// Order depends on the selected search type (etf|stock) — the matching one goes
-// first, the other stays as a fallback in case the type was guessed wrong.
+// ETF and stock ISINs go through genuinely different Eulerpool endpoints — confirmed
+// live against eulerpool.com/developers, 2026-09-19. ETFs: etf/profile (name+nav
+// together) with etf/holdings as an array fallback. Stocks have NO equivalent
+// single "overview" endpoint (equity/overview, this code's previous guess, doesn't
+// exist at all) — equity/profile (name, no price) and equity/quotes (price, no
+// name) are two separate calls; see fetchEquityProfile()/fetchEquityQuote() below.
 let searchType = 'etf';
 const ISIN_ENDPOINTS_BY_TYPE = {
-  etf:   [
-    { key:'etf-profile',  url: isin => `https://api.eulerpool.com/api/1/etf/profile/${encodeURIComponent(isin)}` },
-    { key:'etf-holdings', url: isin => `https://api.eulerpool.com/api/1/etf/holdings/${encodeURIComponent(isin)}` },
-    { key:'equity',       url: isin => `https://api.eulerpool.com/api/1/equity/overview/${encodeURIComponent(isin)}` }
-  ],
-  stock: [
-    { key:'equity',       url: isin => `https://api.eulerpool.com/api/1/equity/overview/${encodeURIComponent(isin)}` },
+  etf: [
     { key:'etf-profile',  url: isin => `https://api.eulerpool.com/api/1/etf/profile/${encodeURIComponent(isin)}` },
     { key:'etf-holdings', url: isin => `https://api.eulerpool.com/api/1/etf/holdings/${encodeURIComponent(isin)}` }
   ]
 };
 
-// Tries each endpoint in order. An endpoint that returns a JSON *object* wins
+// Tries each ETF endpoint in order. An endpoint that returns a JSON *object* wins
 // immediately (that's where a price/NAV field could live). An endpoint that
 // returns a JSON *array* (e.g. etf/holdings — a list of the fund's constituent
 // stocks, not the fund's own price) is kept as a fallback but doesn't stop the
@@ -1131,8 +1130,12 @@ async function fetchInstrumentByIsin(isin, type){
   return { ok:false, json:null, raw:null, endpoint:null, attempts, isArrayResponse:false };
 }
 
+// equity/profile's exact field name for the company name isn't shown in Eulerpool's
+// own docs example (only that it's "static company info") — this multi-candidate
+// guess plus the debug panel is the same best-effort pattern the rest of this file
+// already uses for anything not spelled out verbatim in their docs.
 function extractName(json){
-  return json.name || json.longName || json.fundName || (json.etf && json.etf.name) || null;
+  return json.name || json.longName || json.companyName || json.fundName || (json.etf && json.etf.name) || null;
 }
 function extractPrice(json){
   const priceFields = ['price','lastPrice','currentPrice','close','last','nav','navPrice','netAssetValue'];
@@ -1142,6 +1145,50 @@ function extractPrice(json){
   if(json.quote && typeof json.quote.price==='number') return { value: json.quote.price, field:'quote.price' };
   if(json.etf && typeof json.etf.price==='number') return { value: json.etf.price, field:'etf.price' };
   return null;
+}
+
+// equity/profile: static company info (name etc.), confirmed real path, no price field.
+async function fetchEquityProfile(isin){
+  const attempts = [];
+  const url = `https://api.eulerpool.com/api/1/equity/profile/${encodeURIComponent(isin)}?token=${encodeURIComponent(eulerpoolKey)}`;
+  try{
+    const res = await fetch(url);
+    const raw = await res.text();
+    let json = null;
+    try{ json = JSON.parse(raw); } catch(e){ /* not JSON */ }
+    attempts.push({ endpoint:'equity-profile', status: res.status, raw });
+    if(res.ok && json && !Array.isArray(json)){
+      return { ok:true, json, raw, endpoint:'equity-profile', attempts, isArrayResponse:false };
+    }
+  } catch(err){
+    attempts.push({ endpoint:'equity-profile', status:'network-error', raw: err.message });
+  }
+  return { ok:false, json:null, raw:null, endpoint:null, attempts, isArrayResponse:false };
+}
+
+// equity/quotes: confirmed real path, but returns an ARRAY of {timestamp, price}
+// (a time series), not a single current-price object like etf/profile's nav field —
+// takes the last entry as "current". No documented guarantee the array is sorted
+// oldest-first, but that's the only order that makes "last = current" sensible.
+async function fetchEquityQuote(isin){
+  const attempts = [];
+  const url = `https://api.eulerpool.com/api/1/equity/quotes/${encodeURIComponent(isin)}?token=${encodeURIComponent(eulerpoolKey)}`;
+  try{
+    const res = await fetch(url);
+    const raw = await res.text();
+    let json = null;
+    try{ json = JSON.parse(raw); } catch(e){ /* not JSON */ }
+    attempts.push({ endpoint:'equity-quotes', status: res.status, raw });
+    if(res.ok && Array.isArray(json) && json.length){
+      const latest = json[json.length-1];
+      if(typeof latest.price==='number'){
+        return { ok:true, value: latest.price, endpoint:'equity-quotes', attempts };
+      }
+    }
+  } catch(err){
+    attempts.push({ endpoint:'equity-quotes', status:'network-error', raw: err.message });
+  }
+  return { ok:false, value:null, endpoint:null, attempts };
 }
 function logAttempts(label, isin, result){
   const lines = result.attempts.map(a => `  [${a.endpoint}] HTTP ${a.status}${typeof a.raw==='string' ? '\n  ' + a.raw.slice(0,400) : ''}`);
@@ -1154,19 +1201,25 @@ function logAttempts(label, isin, result){
 }
 
 // ---- Distributions (dividend history) — same try/log/fallback pattern as price ----
+// Stocks only: equity/dividends is confirmed real. Eulerpool's ETF API has no
+// distributions/dividends endpoint at all — confirmed against their real docs,
+// 2026-09-19, its full 8-endpoint list is description/list/quotes/countries/
+// sectors/profile/holdings/flows, none of which is per-payment history. The old
+// etf/distributions guess (and its use as a stock-side fallback) always 404'd;
+// removed rather than left calling a URL that provably can't exist. See
+// fetchOneFundPriceEulerpool()'s ETF branch for the yield-derived estimate this
+// gap is worked around with instead, and renderScheduleTable() for how that's
+// disclosed as "no real schedule available" rather than silently faked.
 const DIV_ENDPOINTS_BY_TYPE = {
-  etf: [
-    { key:'etf-distributions', url: isin => `https://api.eulerpool.com/api/1/etf/distributions/${encodeURIComponent(isin)}` }
-  ],
   stock: [
-    { key:'equity-dividends', url: isin => `https://api.eulerpool.com/api/1/equity/dividends/${encodeURIComponent(isin)}` },
-    { key:'etf-distributions', url: isin => `https://api.eulerpool.com/api/1/etf/distributions/${encodeURIComponent(isin)}` }
+    { key:'equity-dividends', url: isin => `https://api.eulerpool.com/api/1/equity/dividends/${encodeURIComponent(isin)}` }
   ]
 };
 
 async function fetchDistributions(isin, type){
   const attempts = [];
-  const endpoints = DIV_ENDPOINTS_BY_TYPE[type] || DIV_ENDPOINTS_BY_TYPE.etf;
+  const endpoints = DIV_ENDPOINTS_BY_TYPE[type];
+  if(!endpoints) return { ok:false, json:null, endpoint:null, attempts, isArrayResponse:false };
   for(const ep of endpoints){
     const url = `${ep.url(isin)}?token=${encodeURIComponent(eulerpoolKey)}`;
     try{
@@ -1228,7 +1281,9 @@ function extractAnnualDividend(json){
 }
 
 // Fetches one fund's price AND trailing dividend/share from Eulerpool by ISIN.
-// Returns true if at least one of the two was applied live.
+// Returns true if at least one of the two was applied live. Stocks and ETFs go
+// through genuinely different endpoints (see the two branches below), so this
+// is just the shared key/ISIN guard, dispatching to whichever actually applies.
 async function fetchOneFundPriceEulerpool(f){
   if(!eulerpoolKey){
     setLiveStatus(f.id, '', 'no Eulerpool key — paste it above');
@@ -1239,24 +1294,32 @@ async function fetchOneFundPriceEulerpool(f){
     return false;
   }
   setLiveStatus(f.id, '', 'fetching…');
+  return (f.assetType||'etf')==='stock'
+    ? fetchOneFundPriceEulerpoolStock(f)
+    : fetchOneFundPriceEulerpoolEtf(f);
+}
 
-  const priceResult = await fetchInstrumentByIsin(f.isin, f.assetType || 'etf');
-  logAttempts(f.code+' [price]', f.isin, priceResult);
+// Stocks: equity/quotes gives a real numeric price directly (no field-guessing
+// needed, unlike extractPrice()'s multi-candidate approach for the ETF/generic
+// case) and equity/dividends gives the real per-payment schedule.
+async function fetchOneFundPriceEulerpoolStock(f){
+  const priceResult = await fetchEquityQuote(f.isin);
+  logAttempts(f.code+' [price]', f.isin, {
+    attempts: priceResult.attempts, ok: priceResult.ok, isArrayResponse:false,
+    json: priceResult.ok ? {price:priceResult.value} : null, endpoint: priceResult.endpoint
+  });
 
-  const divResult = await fetchDistributions(f.isin, f.assetType || 'etf');
+  const divResult = await fetchDistributions(f.isin, 'stock');
   logAttempts(f.code+' [dividends]', f.isin, divResult);
 
   let priceMsg = null, divMsg = null, anyOk = false;
 
-  if(priceResult.ok && !priceResult.isArrayResponse){
-    const price = extractPrice(priceResult.json);
-    if(price){
-      f.price = price.value;
-      const priceEl = document.getElementById('price-'+f.id);
-      if(priceEl) priceEl.value = price.value;
-      priceMsg = `price ${currencySymbol(currentCurrency)}${price.value} (${priceResult.endpoint})`;
-      anyOk = true;
-    }
+  if(priceResult.ok){
+    f.price = priceResult.value;
+    const priceEl = document.getElementById('price-'+f.id);
+    if(priceEl) priceEl.value = f.price;
+    priceMsg = `price ${currencySymbol(currentCurrency)}${f.price} (equity-quotes)`;
+    anyOk = true;
   }
 
   if(divResult.ok){
@@ -1273,10 +1336,52 @@ async function fetchOneFundPriceEulerpool(f){
 
   if(priceMsg || divMsg){
     setLiveStatus(f.id, priceMsg ? 'ok' : 'warn', [priceMsg, divMsg].filter(Boolean).join(' · '));
+  } else {
+    setLiveStatus(f.id, 'err', 'no price or dividend data found — see debug panel');
+  }
+  return anyOk;
+}
+
+// ETFs: etf/profile carries price (nav) and a yield percentage (dividendYield)
+// together, but Eulerpool's ETF API has no per-payment distributions endpoint at
+// all (see DIV_ENDPOINTS_BY_TYPE's own comment) -- the best available substitute
+// is deriving an approximate div/share from yield x price. That's real math on
+// real confirmed fields, but it is NOT an actual distribution record: no payment
+// dates, no way to know how many payments/year actually made up that yield.
+// f.paymentHistory is deliberately left untouched here (not fabricated) --
+// renderScheduleTable() shows an ETF-specific explanation for why it's empty
+// rather than a generic "not fetched yet".
+async function fetchOneFundPriceEulerpoolEtf(f){
+  const priceResult = await fetchInstrumentByIsin(f.isin, 'etf');
+  logAttempts(f.code+' [price]', f.isin, priceResult);
+
+  let priceMsg = null, divMsg = null, anyOk = false;
+
+  if(priceResult.ok && !priceResult.isArrayResponse){
+    const price = extractPrice(priceResult.json);
+    if(price){
+      f.price = price.value;
+      const priceEl = document.getElementById('price-'+f.id);
+      if(priceEl) priceEl.value = price.value;
+      priceMsg = `price ${currencySymbol(currentCurrency)}${price.value} (${priceResult.endpoint})`;
+      anyOk = true;
+    }
+    const yieldPct = priceResult.json.dividendYield;
+    if(typeof yieldPct==='number' && price){
+      f.div = round4(price.value * yieldPct/100);
+      const divEl = document.getElementById('divps-'+f.id);
+      if(divEl) divEl.value = f.div;
+      divMsg = `div ${currencySymbol(currentCurrency)}${f.div.toFixed(2)}/yr (estimated from ${yieldPct}% yield × price — Eulerpool has no ETF distribution-history endpoint)`;
+      anyOk = true;
+    }
+  }
+
+  if(priceMsg || divMsg){
+    setLiveStatus(f.id, priceMsg ? 'ok' : 'warn', [priceMsg, divMsg].filter(Boolean).join(' · '));
   } else if(priceResult.ok && priceResult.isArrayResponse){
     setLiveStatus(f.id, 'warn', `[${priceResult.endpoint}] only returned holdings composition, not a price — see debug panel`);
   } else {
-    setLiveStatus(f.id, 'err', 'no price or dividend data found — see debug panel');
+    setLiveStatus(f.id, 'err', 'no price data found — see debug panel');
   }
   return anyOk;
 }
@@ -1404,7 +1509,10 @@ async function fetchLivePrices(){
 // Direct lookup for a known ISIN — tries etf/holdings first, then equity/overview.
 async function lookupByIsin(isin, resultsEl){
   resultsEl.innerHTML = `<div class="search-status">Looking up ${esc(isin)}…</div>`;
-  const result = await fetchInstrumentByIsin(isin, searchType);
+  // equity/profile (stock) and etf/profile (ETF) return the same {ok, json,
+  // endpoint, attempts, isArrayResponse} shape, so everything below this needs
+  // no further branching by type.
+  const result = searchType==='stock' ? await fetchEquityProfile(isin) : await fetchInstrumentByIsin(isin, searchType);
   logAttempts('lookup', isin, result);
 
   if(!result.ok){
