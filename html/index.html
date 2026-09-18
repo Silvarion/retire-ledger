@@ -1,0 +1,1431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dividend Income Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E1620;
+    --panel:#141F2C;
+    --panel-alt:#192537;
+    --border:#28374A;
+    --border-soft:#1F2C3D;
+    --text:#ECE7DA;
+    --text-dim:#8FA0B5;
+    --text-faint:#5D6E82;
+    --gold:#C9A227;
+    --gold-soft:#3A331B;
+    --good:#6FAE8C;
+    --bad:#C1633B;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse at top left, rgba(201,162,39,0.05), transparent 45%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    line-height:1.5;
+    padding:0 0 80px;
+  }
+  a{color:var(--gold);}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:0 28px;}
+
+  /* ---------- Header ---------- */
+  header{
+    padding:52px 28px 40px;
+    border-bottom:1px solid var(--border-soft);
+    background:linear-gradient(180deg, rgba(201,162,39,0.04), transparent);
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11.5px;
+    letter-spacing:.16em;
+    text-transform:uppercase;
+    color:var(--gold);
+    margin:0 0 14px;
+  }
+  h1{
+    font-family:'Fraunces',serif;
+    font-weight:500;
+    font-size:clamp(32px,4.4vw,52px);
+    margin:0 0 12px;
+    letter-spacing:-0.01em;
+    color:#F5F1E6;
+  }
+  .lede{
+    max-width:640px;
+    color:var(--text-dim);
+    font-size:15px;
+    margin:0;
+  }
+  .lede b{color:var(--text);font-weight:600;}
+
+  /* ---------- Section shells ---------- */
+  section{padding:40px 28px;border-bottom:1px solid var(--border-soft);}
+  .section-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap;}
+  .section-num{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;color:var(--text-faint);letter-spacing:.1em;
+  }
+  h2{
+    font-family:'Fraunces',serif;
+    font-weight:500;
+    font-size:22px;
+    margin:2px 0 0;
+    color:#F5F1E6;
+  }
+  .section-note{font-size:12.5px;color:var(--text-faint);max-width:440px;text-align:right;}
+
+  /* ---------- Controls ---------- */
+  .controls-grid{
+    display:grid;
+    grid-template-columns:1.1fr 1fr 1.3fr;
+    gap:20px;
+  }
+  @media(max-width:880px){.controls-grid{grid-template-columns:1fr;}}
+
+  .field{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:18px 20px;
+  }
+  .field label{
+    display:block;
+    font-size:11.5px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    margin-bottom:10px;
+  }
+  .money-input{
+    display:flex;align-items:baseline;gap:6px;
+  }
+  .money-input span{font-family:'Fraunces',serif;font-size:22px;color:var(--gold);}
+  .money-input input{
+    background:transparent;border:none;outline:none;
+    font-family:'Fraunces',serif;font-size:28px;color:var(--text);
+    width:100%;font-weight:500;
+  }
+  .field .hint{font-size:11.5px;color:var(--text-faint);margin-top:8px;}
+
+  .tax-toggle{display:flex;gap:8px;margin-bottom:12px;}
+  .tax-toggle button{
+    flex:1;
+    background:var(--panel-alt);
+    border:1px solid var(--border);
+    color:var(--text-dim);
+    padding:9px 10px;
+    border-radius:7px;
+    font-size:12.5px;
+    font-family:'Inter',sans-serif;
+    cursor:pointer;
+    transition:all .15s;
+  }
+  .tax-toggle button.active{
+    background:var(--gold-soft);
+    border-color:var(--gold);
+    color:var(--gold);
+    font-weight:600;
+  }
+  .flat-rate-row{display:flex;align-items:center;gap:10px;}
+  .flat-rate-row input[type=number]{
+    width:70px;background:var(--panel-alt);border:1px solid var(--border);
+    color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:15px;
+    padding:7px 8px;border-radius:6px;
+  }
+  .brackets-list{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-faint);line-height:1.9;}
+  .brackets-list b{color:var(--text-dim);}
+
+  select{
+    width:100%;
+    background:var(--panel-alt);
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:9px 10px;
+    border-radius:7px;
+    font-family:'Inter',sans-serif;
+    font-size:13.5px;
+    margin-bottom:12px;
+  }
+  .weights-row{display:none;gap:8px;flex-wrap:wrap;margin-top:6px;}
+  .weights-row.show{display:flex;}
+  .weight-chip{
+    flex:1;min-width:90px;
+    background:var(--panel-alt);border:1px solid var(--border);border-radius:7px;
+    padding:8px 10px;
+  }
+  .weight-chip .wc-label{font-size:10.5px;color:var(--text-faint);margin-bottom:4px;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;}
+  .weight-chip input{
+    width:100%;background:transparent;border:none;outline:none;
+    color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:14px;
+  }
+  .weight-total{font-size:11px;color:var(--text-faint);margin-top:8px;}
+  .weight-total.warn{color:var(--bad);}
+
+  /* ---------- Fund table ---------- */
+  .fund-table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:1020px;}
+  thead th{
+    text-align:left;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10.5px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--text-faint);
+    padding:12px 14px;
+    background:var(--panel-alt);
+    border-bottom:1px solid var(--border);
+    white-space:nowrap;
+  }
+  tbody td{
+    padding:13px 14px;
+    border-bottom:1px solid var(--border-soft);
+    vertical-align:top;
+    white-space:nowrap;
+  }
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:rgba(255,255,255,0.015);}
+  td.mono, .mono{font-family:'IBM Plex Mono',monospace;}
+  td input[type=number]{
+    width:82px;background:var(--panel-alt);border:1px solid var(--border);
+    color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13px;
+    padding:6px 7px;border-radius:6px;margin-top:6px;
+  }
+  .totals-row td{
+    background:var(--gold-soft);
+    font-weight:600;
+    color:var(--gold);
+    border-top:1px solid var(--border);
+    border-bottom:none;
+  }
+  .flag{
+    display:inline-block;font-size:10px;color:var(--bad);
+    border:1px solid rgba(193,99,58,0.4);background:rgba(193,99,58,0.08);
+    padding:1px 6px;border-radius:4px;margin-bottom:8px;font-family:'Inter',sans-serif;
+  }
+
+  /* ---- editable fund cell ---- */
+  .fund-cell{min-width:240px;white-space:normal;}
+  .fund-cell-top{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+  .swatch{width:9px;height:9px;border-radius:2px;flex:none;}
+  .fname{
+    flex:1;min-width:0;background:transparent;border:none;border-bottom:1px dashed var(--border);
+    color:var(--text);font-weight:600;font-size:13px;font-family:'Inter',sans-serif;
+    padding:2px 0;outline:none;
+  }
+  .fname:focus{border-bottom-color:var(--gold);}
+  .remove-fund-btn{
+    flex:none;width:20px;height:20px;border-radius:5px;border:1px solid var(--border);
+    background:var(--panel-alt);color:var(--text-faint);font-size:13px;line-height:1;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;
+  }
+  .remove-fund-btn:hover{border-color:var(--bad);color:var(--bad);}
+  .remove-fund-btn:disabled{opacity:0.2;cursor:not-allowed;}
+  .fcode{
+    display:block;width:100%;background:var(--panel-alt);border:1px solid var(--border);border-radius:5px;
+    color:var(--text-dim);font-size:11px;padding:4px 7px;margin-bottom:8px;outline:none;
+    text-transform:uppercase;letter-spacing:.04em;font-family:'IBM Plex Mono',monospace;
+  }
+  .fcode:focus{border-color:var(--gold);color:var(--text);}
+  .month-picker{display:flex;gap:3px;flex-wrap:wrap;max-width:160px;}
+  .month-chip{
+    width:18px;height:18px;border-radius:4px;border:1px solid var(--border);
+    background:var(--panel-alt);color:var(--text-faint);font-size:9.5px;font-family:'IBM Plex Mono',monospace;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;
+  }
+  .month-chip.on{background:var(--gold-soft);border-color:var(--gold);color:var(--gold);font-weight:600;}
+  .month-chip:hover{border-color:var(--text-dim);}
+
+  .table-actions{display:flex;justify-content:space-between;align-items:center;padding:14px 4px 0;flex-wrap:wrap;gap:10px;}
+  .table-actions-group{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .config-status{font-size:11.5px;color:var(--text-faint);padding:8px 4px 0;min-height:1em;}
+  .config-status.ok{color:var(--good);}
+  .config-status.err{color:var(--bad);}
+  .add-fund-btn{
+    background:transparent;border:1px dashed var(--border);color:var(--text-dim);
+    padding:9px 16px;border-radius:8px;font-size:12.5px;font-family:'Inter',sans-serif;
+    cursor:pointer;transition:all .15s;
+  }
+  .add-fund-btn:hover{border-color:var(--gold);color:var(--gold);}
+  .reset-link{background:none;border:none;color:var(--text-faint);font-size:11.5px;cursor:pointer;text-decoration:underline;text-underline-offset:2px;font-family:'Inter',sans-serif;padding:0;}
+  .reset-link:hover{color:var(--gold);}
+
+  /* ---- live price fetch ---- */
+  .live-controls{
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    padding:14px 18px;margin-bottom:18px;
+  }
+  .live-controls input[type=password]{
+    flex:1;min-width:200px;background:var(--panel-alt);border:1px solid var(--border);
+    color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13px;
+    padding:8px 10px;border-radius:7px;outline:none;
+  }
+  .live-controls input[type=password]:focus{border-color:var(--gold);}
+  .refresh-btn{
+    background:var(--gold-soft);border:1px solid var(--gold);color:var(--gold);
+    padding:8px 16px;border-radius:7px;font-size:12.5px;font-family:'Inter',sans-serif;
+    font-weight:600;cursor:pointer;white-space:nowrap;
+  }
+  .refresh-btn:hover{background:var(--gold);color:#1A1408;}
+  .refresh-btn:disabled{opacity:0.4;cursor:not-allowed;background:var(--panel-alt);border-color:var(--border);color:var(--text-faint);}
+  .live-hint{font-size:11px;color:var(--text-faint);width:100%;}
+
+  .price-cell{white-space:normal;}
+  .live-dot{
+    display:inline-block;width:7px;height:7px;border-radius:50%;
+    background:var(--text-faint);flex:none;margin-right:5px;
+  }
+  .live-dot.ok{background:var(--good);}
+  .live-dot.warn{background:var(--gold);}
+  .live-dot.err{background:var(--bad);}
+  .live-status{font-size:10px;color:var(--text-faint);margin-top:6px;display:flex;align-items:center;}
+
+  .isin-input{
+    display:block;width:100%;background:var(--panel-alt);border:1px solid var(--border);border-radius:5px;
+    color:var(--text-faint);font-size:10.5px;padding:3px 6px;margin-bottom:8px;outline:none;
+    font-family:'IBM Plex Mono',monospace;letter-spacing:.02em;
+  }
+  .isin-input:focus{border-color:var(--gold);color:var(--text);}
+
+  .debug-panel{margin-top:16px;}
+  .debug-panel summary{cursor:pointer;font-size:11.5px;color:var(--text-faint);font-family:'IBM Plex Mono',monospace;}
+  .debug-panel summary:hover{color:var(--gold);}
+  .debug-log{
+    margin-top:10px;background:var(--panel-alt);border:1px solid var(--border);border-radius:8px;
+    padding:12px 14px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-dim);
+    max-height:280px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;
+  }
+
+  /* ---- fund/stock search ---- */
+  .search-box{
+    background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    padding:14px 18px;margin-bottom:18px;
+  }
+  .search-row{display:flex;gap:10px;margin-top:10px;}
+  .search-row input[type=text]{
+    flex:1;background:var(--panel-alt);border:1px solid var(--border);
+    color:var(--text);font-family:'Inter',sans-serif;font-size:13.5px;
+    padding:9px 12px;border-radius:7px;outline:none;
+  }
+  .search-type-toggle{display:flex;gap:8px;}
+  .search-type-btn{
+    background:var(--panel-alt);border:1px solid var(--border);color:var(--text-dim);
+    padding:6px 14px;border-radius:7px;font-size:12px;font-family:'Inter',sans-serif;
+    cursor:pointer;transition:all .15s;
+  }
+  .search-type-btn.active{background:var(--gold-soft);border-color:var(--gold);color:var(--gold);font-weight:600;}
+  .asset-type-toggle{display:flex;gap:4px;margin-bottom:8px;}
+  .asset-type-btn{
+    background:var(--panel-alt);border:1px solid var(--border);color:var(--text-faint);
+    padding:2px 8px;border-radius:5px;font-size:9.5px;font-family:'IBM Plex Mono',monospace;
+    cursor:pointer;text-transform:uppercase;letter-spacing:.03em;
+  }
+  .asset-type-btn.active{background:var(--gold-soft);border-color:var(--gold);color:var(--gold);}
+  .search-row input[type=text]:focus{border-color:var(--gold);}
+  .search-hint{font-size:11px;color:var(--text-faint);margin-top:8px;}
+  .search-results{margin-top:12px;display:flex;flex-direction:column;gap:1px;}
+  .search-results:empty{margin-top:0;}
+  .search-result-row{
+    display:flex;align-items:center;gap:12px;
+    background:var(--panel-alt);border:1px solid var(--border);
+    padding:10px 12px;border-radius:7px;margin-bottom:4px;
+  }
+  .search-result-info{flex:1;min-width:0;}
+  .search-result-name{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .search-result-meta{font-size:11px;color:var(--text-faint);font-family:'IBM Plex Mono',monospace;margin-top:2px;}
+  .search-add-btn{
+    flex:none;background:var(--gold-soft);border:1px solid var(--gold);color:var(--gold);
+    width:26px;height:26px;border-radius:6px;font-size:15px;line-height:1;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;
+  }
+  .search-add-btn:hover{background:var(--gold);color:#1A1408;}
+  .search-add-btn:disabled{opacity:0.3;cursor:default;}
+  .search-status{font-size:11.5px;color:var(--text-faint);padding:4px 2px;}
+
+  /* ---------- Calendar (signature element) ---------- */
+  .calendar{
+    display:grid;
+    grid-template-columns:repeat(12,1fr);
+    gap:1px;
+    background:var(--border);
+    border:1px solid var(--border);
+    border-radius:10px;
+    overflow:hidden;
+  }
+  @media(max-width:900px){.calendar{grid-template-columns:repeat(4,1fr);}}
+  @media(max-width:560px){.calendar{grid-template-columns:repeat(3,1fr);}}
+
+  .month-cell{
+    background:var(--panel);
+    padding:14px 10px 12px;
+    min-height:150px;
+    display:flex;
+    flex-direction:column;
+  }
+  .month-cell.active{background:var(--panel-alt);}
+  .month-label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10.5px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--text-faint);
+    margin-bottom:10px;
+  }
+  .month-bars{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:3px;margin-bottom:10px;}
+  .fund-bar{height:6px;border-radius:2px;opacity:0.9;}
+  .month-total{
+    font-family:'Fraunces',serif;
+    font-size:16px;
+    color:var(--text);
+    font-weight:500;
+  }
+  .month-total.zero{color:var(--text-faint);font-size:13px;font-family:'Inter',sans-serif;}
+
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:20px;font-size:12px;color:var(--text-dim);}
+  .legend-item{display:flex;align-items:center;gap:7px;}
+
+  /* ---------- Summary strip ---------- */
+  .summary-strip{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
+    background:var(--border);border:1px solid var(--border);border-radius:10px;overflow:hidden;
+  }
+  @media(max-width:760px){.summary-strip{grid-template-columns:repeat(2,1fr);}}
+  .summary-cell{background:var(--panel);padding:20px 22px;}
+  .summary-cell .s-label{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint);margin-bottom:8px;}
+  .summary-cell .s-value{font-family:'Fraunces',serif;font-size:26px;color:var(--gold);font-weight:500;}
+  .summary-cell .s-sub{font-size:11.5px;color:var(--text-faint);margin-top:6px;font-family:'IBM Plex Mono',monospace;}
+
+  footer{padding:32px 28px 0;}
+  .disclaimer{
+    font-size:12px;color:var(--text-faint);max-width:820px;line-height:1.7;
+    border-left:2px solid var(--border);padding-left:16px;
+  }
+  .data-attribution{
+    display:inline-flex;align-items:center;gap:6px;
+    margin:18px 0 0;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;letter-spacing:.04em;
+    color:var(--text-faint);
+  }
+  .data-attribution a{color:var(--text-dim);text-decoration:none;border-bottom:1px dotted var(--text-faint);}
+  .data-attribution a:hover{color:var(--gold);border-bottom-color:var(--gold);}
+  .data-attribution .dot{width:5px;height:5px;border-radius:50%;background:var(--good);flex:none;}
+  .data-attribution.offline .dot{background:var(--text-faint);}
+</style>
+</head>
+<body>
+
+<header class="wrap">
+  <p class="eyebrow">Dividend Income Ledger &nbsp;·&nbsp; Jesus A. Sanchez Davila</p>
+  <h1>Plan the income. Size the capital.</h1>
+  <p class="lede">Set a target net annual dividend income and a tax rate, and this ledger spreads it across your ETFs, tells you how many shares and how much capital each one needs, and lays out the <b>month‑by‑month payout calendar</b> the combination actually produces. Add, edit, or remove funds freely — the four originals stay one click away via "Reset to defaults."</p>
+</header>
+
+<section class="wrap">
+  <div class="section-head">
+    <div>
+      <div class="section-num">01 — Inputs</div>
+      <h2>Target &amp; taxation</h2>
+    </div>
+    <div class="section-note">All figures are net, post‑tax, unless labelled gross. Change any number below and every table updates.</div>
+  </div>
+
+  <div class="controls-grid">
+    <div class="field">
+      <label for="targetIncome">Desired net annual dividend income</label>
+      <div class="money-input">
+        <span>€</span>
+        <input type="number" id="targetIncome" value="24000" min="0" step="100">
+      </div>
+      <div class="hint">Split quarterly (or monthly, via the calendar below) across your funds.</div>
+    </div>
+
+    <div class="field">
+      <label>Tax treatment</label>
+      <div class="tax-toggle">
+        <button id="btnFlat" class="active">Flat rate</button>
+        <button id="btnSpain">Spanish savings brackets</button>
+      </div>
+      <div id="flatRateBox" class="flat-rate-row">
+        <input type="number" id="flatRate" value="19" min="0" max="60" step="0.5">
+        <span style="font-size:13px;color:var(--text-dim);">% applied to all dividend income</span>
+      </div>
+      <div id="spainBox" class="brackets-list" style="display:none;">
+        <div><b>19%</b> up to €6,000 &nbsp;·&nbsp; <b>21%</b> €6,000–50,000</div>
+        <div><b>23%</b> €50,000–200,000 &nbsp;·&nbsp; <b>27%</b> €200,000–300,000 &nbsp;·&nbsp; <b>30%</b> above</div>
+        <div style="margin-top:6px;color:var(--text-faint);">2026 IRPF base del ahorro (state scale). Applied progressively to total gross dividend income; blended rate shown in results.</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="allocMode">Allocation across funds</label>
+      <select id="allocMode">
+        <option value="equal-income">Equal net income per fund</option>
+        <option value="equal-capital">Equal capital invested per fund</option>
+        <option value="custom">Custom weights</option>
+      </select>
+      <div id="weightsRow" class="weights-row"></div>
+      <div id="weightTotal" class="weight-total"></div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="section-head">
+    <div>
+      <div class="section-num">02 — Holdings</div>
+      <h2>Fund data</h2>
+    </div>
+    <div class="section-note">Name, ticker, ISIN, price, gross dividend/share, and payout months are all editable — add new funds or remove any of the defaults. Defaults are approximate figures from public sources (justETF, DivvyDiary, Yahoo Finance, stockanalysis.com) as of 19 Aug 2026. Verify against your broker before acting.</div>
+  </div>
+
+  <div class="live-controls">
+    <input type="password" id="eulerpoolKey" placeholder="Eulerpool API key — kept in this tab's memory only, never saved" autocomplete="off">
+    <button class="refresh-btn" id="refreshBtn">Refresh live prices</button>
+    <div class="live-hint">Fetches by ISIN, per fund, from Eulerpool. Funds with no ISIN filled in below are skipped and keep their manual price. Data by Eulerpool.</div>
+  </div>
+
+  <div class="search-box">
+    <div class="search-type-toggle" id="searchTypeToggle">
+      <button type="button" class="search-type-btn active" data-type="etf">ETF</button>
+      <button type="button" class="search-type-btn" data-type="stock">Stock</button>
+    </div>
+    <div class="search-row">
+      <input type="text" id="fundSearch" placeholder="Paste an ISIN (most reliable) or try a name/ticker…" autocomplete="off">
+      <button class="refresh-btn" id="searchBtn">Search</button>
+    </div>
+    <div class="search-hint" id="searchHint">Pasting an ISIN tries the matching endpoint first for whichever type is selected above (falls back to the other type's endpoint if that one 404s). A name or ticker instead falls back to a best-effort search call whose exact path isn't confirmed — check the debug panel if it comes up empty. Requires the API key above.</div>
+    <div class="search-results" id="searchResults"></div>
+  </div>
+
+  <div class="fund-table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Fund</th>
+          <th>Price (€)</th>
+          <th>Gross div/share (€/yr)</th>
+          <th>Gross yield</th>
+          <th>Net div/share</th>
+          <th>Weight</th>
+          <th>Shares needed</th>
+          <th>Investment required</th>
+          <th>Net annual income</th>
+          <th>Net per quarter</th>
+        </tr>
+      </thead>
+      <tbody id="fundBody"></tbody>
+      <tbody>
+        <tr class="totals-row" id="totalsRow"></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="table-actions">
+    <div class="table-actions-group">
+      <button class="add-fund-btn" id="addFundBtn">+ Add fund</button>
+      <button class="reset-link" id="resetFundsBtn">Reset to the four defaults</button>
+    </div>
+    <div class="table-actions-group">
+      <button class="add-fund-btn" id="saveDefaultsBtn">Save as new defaults</button>
+      <button class="add-fund-btn" id="downloadConfigBtn">Download config</button>
+      <button class="add-fund-btn" id="uploadConfigBtn">Upload config</button>
+      <input type="file" id="uploadConfigInput" accept="application/json,.json" style="display:none;">
+    </div>
+  </div>
+  <div class="config-status" id="configStatus"></div>
+  <details class="debug-panel">
+    <summary>API responses (debug — open this if a fetch doesn't behave as expected)</summary>
+    <div class="debug-log" id="debugLog">No requests made yet.</div>
+  </details>
+</section>
+
+<section class="wrap">
+  <div class="section-head">
+    <div>
+      <div class="section-num">03 — Cash flow</div>
+      <h2>Payout calendar</h2>
+    </div>
+    <div class="section-note">Click a fund's month letters above to change when it pays. Funds on staggered quarter cycles turn this into a monthly cash flow instead of a purely quarterly one.</div>
+  </div>
+
+  <div class="calendar" id="calendar"></div>
+
+  <div class="legend" id="legend"></div>
+</section>
+
+<section class="wrap" style="border-bottom:none;">
+  <div class="section-head">
+    <div>
+      <div class="section-num">04 — Summary</div>
+      <h2>Portfolio totals</h2>
+    </div>
+  </div>
+  <div class="summary-strip" id="summaryStrip"></div>
+</section>
+
+<footer class="wrap">
+  <p class="disclaimer">
+    Built from publicly available ETF data (justETF, DivvyDiary, Digrin, Yahoo Finance, stockanalysis.com) retrieved 19 Aug 2026. Dividend figures blend several sources and vary between them — treat the defaults as a planning starting point, not a quote, and re-check price, distribution amount and ex‑dividend months with your broker or the fund factsheet before investing, and do the same for any fund you add yourself. This tool does not account for currency effects, fund flow changes, dividend cuts, or your personal tax situation beyond the simplified brackets above. Nothing here is financial or tax advice.
+  </p>
+  <p class="data-attribution offline" id="dataAttribution">
+    <span class="dot"></span>
+    <span id="dataAttributionText">Manual prices — live data by <a href="https://eulerpool.com" target="_blank" rel="noopener">Eulerpool</a> not yet connected</span>
+  </p>
+</footer>
+
+<script>
+const PALETTE = ['#C9A227','#4FA6A0','#B3502F','#6C86B5','#8B6FB3','#6B9B4F','#BA6E8F','#4FA8C9'];
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function defaultFunds(){
+  return [
+    { id:'ehdv', name:'Invesco EURO STOXX High Dividend Low Volatility UCITS ETF', code:'EHDV', isin:'IE00BZ4BMM98', assetType:'etf',
+      color:PALETTE[0], price:34.94, div:1.31, months:[1,4,7,10], weight:25 },
+    { id:'iqqy', name:'iShares Core MSCI Europe UCITS ETF EUR (Dist)', code:'IQQY', isin:'IE00B1YZSC51', assetType:'etf',
+      color:PALETTE[1], price:41.35, div:0.99, months:[1,4,7,10], weight:25 },
+    { id:'vusa', name:'Vanguard S&P 500 UCITS ETF', code:'VUSA', isin:'IE00B3XXRP09', assetType:'etf',
+      color:PALETTE[2], price:123.70, div:1.08, months:[3,6,9,12], weight:25 },
+    { id:'exi2', name:'iShares STOXX Europe 600 Banks UCITS ETF (DE)', code:'EXI2', flagCode:'EXV1', isin:'DE000A0F5UJ7', assetType:'etf',
+      color:PALETTE[3], price:42.80, div:1.44, months:[2,5,8,11], weight:25 }
+  ];
+}
+
+let FUNDS = defaultFunds();
+let taxMode = 'flat'; // 'flat' | 'spain'
+
+const eur = n => new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
+const eur2 = n => new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:2}).format(n);
+const pct = n => new Intl.NumberFormat('es-ES',{style:'percent',maximumFractionDigits:2}).format(n);
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+function spainTax(gross){
+  const brackets = [[6000,0.19],[50000,0.21],[200000,0.23],[300000,0.27],[Infinity,0.30]];
+  let tax=0, prev=0;
+  for(const [cap,rate] of brackets){
+    if(gross<=prev) break;
+    const slice = Math.min(gross,cap)-prev;
+    tax += slice*rate;
+    prev = cap;
+    if(gross<=cap) break;
+  }
+  return tax;
+}
+function netFromGross(gross){
+  if(taxMode==='flat'){
+    const r = parseFloat(document.getElementById('flatRate').value)||0;
+    return gross*(1-r/100);
+  }
+  return gross - spainTax(gross);
+}
+function grossFromNetTarget(targetNet){
+  if(taxMode==='flat'){
+    const r = parseFloat(document.getElementById('flatRate').value)||0;
+    return targetNet/(1-r/100);
+  }
+  let lo=0, hi=Math.max(targetNet*2,1000)+300000;
+  for(let i=0;i<80;i++){
+    const mid=(lo+hi)/2;
+    if(netFromGross(mid) < targetNet) lo=mid; else hi=mid;
+  }
+  return (lo+hi)/2;
+}
+
+function currentWeights(){
+  const mode = document.getElementById('allocMode').value;
+  if(mode==='equal-income'){
+    return FUNDS.map(()=>1/FUNDS.length);
+  }
+  if(mode==='equal-capital'){
+    const yields = FUNDS.map(f=>{
+      const price = parseFloat(document.getElementById('price-'+f.id)?.value)||1;
+      const div = parseFloat(document.getElementById('divps-'+f.id)?.value)||0;
+      return div/price;
+    });
+    const sum = yields.reduce((a,b)=>a+b,0)||1;
+    return yields.map(y=>y/sum);
+  }
+  const raw = FUNDS.map(f=>parseFloat(document.getElementById('w-'+f.id)?.value)||0);
+  const sum = raw.reduce((a,b)=>a+b,0)||1;
+  return raw.map(v=>v/sum);
+}
+
+function buildWeightsUI(){
+  const row = document.getElementById('weightsRow');
+  row.innerHTML = FUNDS.map(f=>`
+    <div class="weight-chip">
+      <div class="wc-label" id="wclabel-${f.id}">${esc(f.code)}</div>
+      <input type="number" id="w-${f.id}" value="${f.weight}" min="0" max="100" step="1">
+    </div>
+  `).join('');
+  FUNDS.forEach(f=>{
+    document.getElementById('w-'+f.id).addEventListener('input',(e)=>{
+      f.weight = parseFloat(e.target.value)||0;
+      render();
+    });
+  });
+}
+
+function buildFundBody(){
+  document.getElementById('fundBody').innerHTML = FUNDS.map(f=>`
+    <tr>
+      <td class="fund-cell">
+        <div class="fund-cell-top">
+          <span class="swatch" style="background:${f.color}"></span>
+          <input class="fname" type="text" id="name-${f.id}" value="${esc(f.name)}">
+          <button class="remove-fund-btn" data-id="${f.id}" title="Remove fund" ${FUNDS.length<=1?'disabled':''}>×</button>
+        </div>
+        <input class="fcode mono" type="text" id="code-${f.id}" value="${esc(f.code)}">
+        <input class="isin-input mono" type="text" id="isin-${f.id}" placeholder="ISIN (for live price)" value="${esc(f.isin||'')}">
+        <div class="asset-type-toggle" data-id="${f.id}">
+          <button type="button" class="asset-type-btn ${f.assetType!=='stock'?'active':''}" data-id="${f.id}" data-type="etf">ETF</button>
+          <button type="button" class="asset-type-btn ${f.assetType==='stock'?'active':''}" data-id="${f.id}" data-type="stock">Stock</button>
+        </div>
+        ${f.flagCode?`<div class="flag" title="Public data listed this ETF under ticker ${esc(f.flagCode)} (ISIN DE000A0F5UJ7)">ticker check: ${esc(f.flagCode)}?</div>`:''}
+        <div class="month-picker">
+          ${MONTH_NAMES.map((mn,idx)=>`<button type="button" class="month-chip ${f.months.includes(idx+1)?'on':''}" data-id="${f.id}" data-m="${idx+1}" title="${mn}">${mn[0]}</button>`).join('')}
+        </div>
+      </td>
+      <td class="price-cell">
+        <input type="number" id="price-${f.id}" value="${f.price}" step="0.01" min="0.01">
+        <div class="live-status"><span class="live-dot" id="livedot-${f.id}"></span><span id="livetext-${f.id}">${f.isin?'not fetched yet':'no ISIN — manual'}</span></div>
+      </td>
+      <td><input type="number" id="divps-${f.id}" value="${f.div}" step="0.01" min="0"></td>
+      <td class="mono yield-${f.id}"></td>
+      <td class="mono netdiv-${f.id}"></td>
+      <td class="mono weight-${f.id}"></td>
+      <td class="mono shares-${f.id}"></td>
+      <td class="mono invest-${f.id}"></td>
+      <td class="mono netinc-${f.id}"></td>
+      <td class="mono netq-${f.id}"></td>
+    </tr>
+  `).join('');
+
+  FUNDS.forEach(f=>{
+    document.getElementById('price-'+f.id).addEventListener('input', e=>{ f.price = parseFloat(e.target.value)||0.01; render(); });
+    document.getElementById('divps-'+f.id).addEventListener('input', e=>{ f.div = parseFloat(e.target.value)||0; render(); });
+    document.getElementById('name-'+f.id).addEventListener('input', e=>{ f.name = e.target.value; });
+    document.getElementById('code-'+f.id).addEventListener('input', e=>{
+      f.code = e.target.value;
+      const lbl = document.getElementById('wclabel-'+f.id);
+      if(lbl) lbl.textContent = f.code;
+      render();
+    });
+    document.getElementById('isin-'+f.id).addEventListener('input', e=>{
+      f.isin = e.target.value.trim().toUpperCase();
+      const txt = document.getElementById('livetext-'+f.id);
+      if(txt) txt.textContent = f.isin ? 'not fetched yet' : 'no ISIN — manual';
+    });
+  });
+  document.querySelectorAll('.asset-type-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = btn.dataset.id;
+      const f = FUNDS.find(x=>x.id===id);
+      f.assetType = btn.dataset.type;
+      document.querySelectorAll(`.asset-type-btn[data-id="${id}"]`).forEach(b=>{
+        b.classList.toggle('active', b.dataset.type===f.assetType);
+      });
+    });
+  });
+  document.querySelectorAll('.month-chip').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = btn.dataset.id, m = parseInt(btn.dataset.m,10);
+      const f = FUNDS.find(x=>x.id===id);
+      const idx = f.months.indexOf(m);
+      if(idx>=0) f.months.splice(idx,1); else f.months.push(m);
+      btn.classList.toggle('on');
+      render();
+    });
+  });
+  document.querySelectorAll('.remove-fund-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(FUNDS.length<=1) return;
+      FUNDS = FUNDS.filter(f=>f.id!==btn.dataset.id);
+      rebuildAll();
+    });
+  });
+}
+
+function rebuildAll(){
+  buildFundBody();
+  buildWeightsUI();
+  render();
+}
+
+function addFund(){
+  const id = 'f'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  const color = PALETTE[FUNDS.length % PALETTE.length];
+  const evenWeight = Math.round(100/(FUNDS.length+1));
+  FUNDS.push({ id, name:'New fund', code:'TICK', isin:'', assetType:'etf', color, price:10, div:0.30, months:[3,6,9,12], weight:evenWeight });
+  rebuildAll();
+  const el = document.getElementById('name-'+id);
+  if(el){ el.focus(); el.select(); }
+}
+
+// ---- Eulerpool live price fetch ----
+let eulerpoolKey = '';
+
+function logDebug(text){
+  const el = document.getElementById('debugLog');
+  const ts = new Date().toLocaleTimeString('es-ES');
+  el.textContent = (el.textContent==='No requests made yet.' ? '' : el.textContent+'\n\n') + `[${ts}] ${text}`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function setLiveStatus(id, status, text){
+  const dot = document.getElementById('livedot-'+id);
+  const label = document.getElementById('livetext-'+id);
+  if(!dot||!label) return;
+  dot.className = 'live-dot' + (status?' '+status:'');
+  label.textContent = text;
+}
+
+function updateAttribution(anyOk){
+  const wrap = document.getElementById('dataAttribution');
+  const txt = document.getElementById('dataAttributionText');
+  if(anyOk){
+    wrap.classList.remove('offline');
+    txt.innerHTML = `Live prices via <a href="https://eulerpool.com" target="_blank" rel="noopener">Eulerpool</a> (delayed data) — last refreshed ${new Date().toLocaleTimeString('es-ES')}`;
+  } else {
+    wrap.classList.add('offline');
+    txt.innerHTML = `Manual prices — live data by <a href="https://eulerpool.com" target="_blank" rel="noopener">Eulerpool</a> not yet connected`;
+  }
+}
+
+// Tries a sequence of endpoints for a given ISIN, since different instrument
+// types live under different paths (confirmed: ETFs -> etf/holdings, not equity/overview).
+// Order depends on the selected search type (etf|stock) — the matching one goes
+// first, the other stays as a fallback in case the type was guessed wrong.
+let searchType = 'etf';
+const ISIN_ENDPOINTS_BY_TYPE = {
+  etf:   [
+    { key:'etf-profile',  url: isin => `https://api.eulerpool.com/api/1/etf/profile/${encodeURIComponent(isin)}` },
+    { key:'etf-holdings', url: isin => `https://api.eulerpool.com/api/1/etf/holdings/${encodeURIComponent(isin)}` },
+    { key:'equity',       url: isin => `https://api.eulerpool.com/api/1/equity/overview/${encodeURIComponent(isin)}` }
+  ],
+  stock: [
+    { key:'equity',       url: isin => `https://api.eulerpool.com/api/1/equity/overview/${encodeURIComponent(isin)}` },
+    { key:'etf-profile',  url: isin => `https://api.eulerpool.com/api/1/etf/profile/${encodeURIComponent(isin)}` },
+    { key:'etf-holdings', url: isin => `https://api.eulerpool.com/api/1/etf/holdings/${encodeURIComponent(isin)}` }
+  ]
+};
+
+// Tries each endpoint in order. An endpoint that returns a JSON *object* wins
+// immediately (that's where a price/NAV field could live). An endpoint that
+// returns a JSON *array* (e.g. etf/holdings — a list of the fund's constituent
+// stocks, not the fund's own price) is kept as a fallback but doesn't stop the
+// search, since a later endpoint might still return the object we actually need.
+async function fetchInstrumentByIsin(isin, type){
+  const attempts = [];
+  const endpoints = ISIN_ENDPOINTS_BY_TYPE[type] || ISIN_ENDPOINTS_BY_TYPE.etf;
+  let arrayFallback = null;
+  for(const ep of endpoints){
+    const url = `${ep.url(isin)}?token=${encodeURIComponent(eulerpoolKey)}`;
+    try{
+      const res = await fetch(url);
+      const raw = await res.text();
+      let json = null;
+      try{ json = JSON.parse(raw); } catch(e){ /* not JSON */ }
+      attempts.push({ endpoint: ep.key, status: res.status, raw });
+      if(res.ok && json && !Array.isArray(json)){
+        return { ok:true, json, raw, endpoint: ep.key, attempts, isArrayResponse:false };
+      }
+      if(res.ok && Array.isArray(json) && json.length && !arrayFallback){
+        arrayFallback = { json, endpoint: ep.key };
+      }
+    } catch(err){
+      attempts.push({ endpoint: ep.key, status: 'network-error', raw: err.message });
+    }
+  }
+  if(arrayFallback){
+    return { ok:true, json: arrayFallback.json, raw:null, endpoint: arrayFallback.endpoint, attempts, isArrayResponse:true };
+  }
+  return { ok:false, json:null, raw:null, endpoint:null, attempts, isArrayResponse:false };
+}
+
+function extractName(json){
+  return json.name || json.longName || json.fundName || (json.etf && json.etf.name) || null;
+}
+function extractPrice(json){
+  const priceFields = ['price','lastPrice','currentPrice','close','last','nav','navPrice','netAssetValue'];
+  for(const key of priceFields){
+    if(typeof json[key]==='number') return { value: json[key], field: key };
+  }
+  if(json.quote && typeof json.quote.price==='number') return { value: json.quote.price, field:'quote.price' };
+  if(json.etf && typeof json.etf.price==='number') return { value: json.etf.price, field:'etf.price' };
+  return null;
+}
+function logAttempts(label, isin, result){
+  const lines = result.attempts.map(a => `  [${a.endpoint}] HTTP ${a.status}${typeof a.raw==='string' ? '\n  ' + a.raw.slice(0,400) : ''}`);
+  const summary = result.ok
+    ? (result.isArrayResponse && result.isArrayResponse !== 'distributions'
+        ? `\n\n⚠ only [${result.endpoint}] returned data, and it's a holdings list (array), not a price — no usable price field.`
+        : `\n\n✓ succeeded via [${result.endpoint}]:\n${JSON.stringify(result.json, null, 2)}`)
+    : '\n\n✗ no endpoint returned usable data';
+  logDebug(`${label} ${isin} →\n${lines.join('\n')}${summary}`);
+}
+
+// ---- Distributions (dividend history) — same try/log/fallback pattern as price ----
+const DIV_ENDPOINTS_BY_TYPE = {
+  etf: [
+    { key:'etf-distributions', url: isin => `https://api.eulerpool.com/api/1/etf/distributions/${encodeURIComponent(isin)}` }
+  ],
+  stock: [
+    { key:'equity-dividends', url: isin => `https://api.eulerpool.com/api/1/equity/dividends/${encodeURIComponent(isin)}` },
+    { key:'etf-distributions', url: isin => `https://api.eulerpool.com/api/1/etf/distributions/${encodeURIComponent(isin)}` }
+  ]
+};
+
+async function fetchDistributions(isin, type){
+  const attempts = [];
+  const endpoints = DIV_ENDPOINTS_BY_TYPE[type] || DIV_ENDPOINTS_BY_TYPE.etf;
+  for(const ep of endpoints){
+    const url = `${ep.url(isin)}?token=${encodeURIComponent(eulerpoolKey)}`;
+    try{
+      const res = await fetch(url);
+      const raw = await res.text();
+      let json = null;
+      try{ json = JSON.parse(raw); } catch(e){ /* not JSON */ }
+      attempts.push({ endpoint: ep.key, status: res.status, raw });
+      if(res.ok && json){
+        return { ok:true, json, endpoint: ep.key, attempts, isArrayResponse:'distributions' };
+      }
+    } catch(err){
+      attempts.push({ endpoint: ep.key, status: 'network-error', raw: err.message });
+    }
+  }
+  return { ok:false, json:null, endpoint:null, attempts, isArrayResponse:false };
+}
+
+// Sums the most recent 4 distribution records to get a trailing-12-month
+// dividend/share figure. Tries several plausible field names for amount/date
+// since we don't have confirmed docs for this endpoint's exact shape.
+function extractAnnualDividend(json){
+  let records = null;
+  if(Array.isArray(json)) records = json;
+  else if(json && Array.isArray(json.distributions)) records = json.distributions;
+  else if(json && Array.isArray(json.data)) records = json.data;
+  else if(json && Array.isArray(json.dividends)) records = json.dividends;
+  if(!records || records.length===0) return null;
+
+  const amountFields = ['amount','value','dividend','distribution','payout','cashAmount'];
+  const dateFields = ['date','payDate','exDate','paymentDate','recordDate'];
+  let amountKey=null, dateKey=null;
+  for(const k of amountFields){ if(typeof records[0][k]==='number'){ amountKey=k; break; } }
+  for(const k of dateFields){ if(records[0][k]!==undefined){ dateKey=k; break; } }
+  if(!amountKey) return null;
+
+  let sorted = records.slice();
+  if(dateKey){
+    sorted.sort((a,b)=> new Date(b[dateKey]) - new Date(a[dateKey]));
+  }
+  const recent = sorted.slice(0,4);
+  const sum = recent.reduce((s,r)=> s + (typeof r[amountKey]==='number'?r[amountKey]:0), 0);
+  if(sum<=0) return null;
+  return { value: sum, count: recent.length, amountKey, dateKey };
+}
+
+// Fetches one fund's price AND trailing dividend/share by ISIN.
+// Returns true if at least one of the two was applied live.
+async function fetchOneFundPrice(f){
+  if(!f.isin){
+    setLiveStatus(f.id, '', 'no ISIN — manual');
+    return false;
+  }
+  setLiveStatus(f.id, '', 'fetching…');
+
+  const priceResult = await fetchInstrumentByIsin(f.isin, f.assetType || 'etf');
+  logAttempts(f.code+' [price]', f.isin, priceResult);
+
+  const divResult = await fetchDistributions(f.isin, f.assetType || 'etf');
+  logAttempts(f.code+' [dividends]', f.isin, divResult);
+
+  let priceMsg = null, divMsg = null, anyOk = false;
+
+  if(priceResult.ok && !priceResult.isArrayResponse){
+    const price = extractPrice(priceResult.json);
+    if(price){
+      f.price = price.value;
+      const priceEl = document.getElementById('price-'+f.id);
+      if(priceEl) priceEl.value = price.value;
+      priceMsg = `price €${price.value} (${priceResult.endpoint})`;
+      anyOk = true;
+    }
+  }
+
+  if(divResult.ok){
+    const div = extractAnnualDividend(divResult.json);
+    if(div){
+      f.div = Math.round(div.value*10000)/10000;
+      const divEl = document.getElementById('divps-'+f.id);
+      if(divEl) divEl.value = f.div;
+      divMsg = `div €${f.div.toFixed(2)}/yr (sum of last ${div.count})`;
+      anyOk = true;
+    }
+  }
+
+  if(priceMsg || divMsg){
+    setLiveStatus(f.id, priceMsg ? 'ok' : 'warn', [priceMsg, divMsg].filter(Boolean).join(' · '));
+  } else if(priceResult.ok && priceResult.isArrayResponse){
+    setLiveStatus(f.id, 'warn', `[${priceResult.endpoint}] only returned holdings composition, not a price — see debug panel`);
+  } else {
+    setLiveStatus(f.id, 'err', 'no price or dividend data found — see debug panel');
+  }
+  return anyOk;
+}
+
+async function fetchLivePrices(){
+  if(!eulerpoolKey){
+    logDebug('No API key entered — paste it into the field above first.');
+    return;
+  }
+  const btn = document.getElementById('refreshBtn');
+  btn.disabled = true;
+  btn.textContent = 'Refreshing…';
+  let anyOk = false;
+
+  for(const f of FUNDS){
+    const ok = await fetchOneFundPrice(f);
+    if(ok) anyOk = true;
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Refresh live prices';
+  render();
+  updateAttribution(anyOk);
+}
+
+// Direct lookup for a known ISIN — tries etf/holdings first, then equity/overview.
+async function lookupByIsin(isin, resultsEl){
+  resultsEl.innerHTML = `<div class="search-status">Looking up ${esc(isin)}…</div>`;
+  const result = await fetchInstrumentByIsin(isin, searchType);
+  logAttempts('lookup', isin, result);
+
+  if(!result.ok){
+    resultsEl.innerHTML = `<div class="search-status">No instrument found for ${esc(isin)} on any endpoint tried. See debug panel for the raw responses.</div>`;
+    return;
+  }
+  if(result.isArrayResponse){
+    const symbol = result.json[0] && result.json[0].etf_symbol;
+    resultsEl.innerHTML = `<div class="search-status">Found ${esc(isin)} via [${esc(result.endpoint)}]${symbol?` (trades as ${esc(symbol)})`:''}, but that endpoint returned holdings composition, not a price. You can still add it manually and set its price yourself, or open the debug panel to see the raw response.</div>`;
+    return;
+  }
+
+  const name = extractName(result.json) || isin;
+  const currency = result.json.currency || '';
+  resultsEl.innerHTML = `
+    <div class="search-result-row">
+      <div class="search-result-info">
+        <div class="search-result-name">${esc(name)}</div>
+        <div class="search-result-meta">${esc(isin)}${currency?' · '+esc(currency):''} · via ${esc(result.endpoint)}</div>
+      </div>
+      <button type="button" class="search-add-btn" id="addByIsinBtn" title="Add this fund">+</button>
+    </div>
+  `;
+  document.getElementById('addByIsinBtn').addEventListener('click', async ()=>{
+    const id = 'f'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    const color = PALETTE[FUNDS.length % PALETTE.length];
+    const evenWeight = Math.round(100/(FUNDS.length+1));
+    const newFund = { id, name, code: isin.slice(0,4), isin, assetType: searchType, color, price:10, div:0.30, months:[3,6,9,12], weight:evenWeight };
+    FUNDS.push(newFund);
+    rebuildAll();
+    await fetchOneFundPrice(newFund);
+    render();
+    document.getElementById('fundSearch').value = '';
+    resultsEl.innerHTML = `<div class="search-status">Added ${esc(name)} — check its ticker, dividend/share, and payout months below.</div>`;
+  });
+}
+
+// ---- Instrument search ----
+// If the query looks like an ISIN, we skip the (unverified) name-search endpoint
+// entirely and look it up directly by ISIN — much more reliable.
+const ISIN_RE = /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/;
+
+async function searchInstruments(){
+  const qRaw = document.getElementById('fundSearch').value.trim();
+  const q = qRaw.toUpperCase();
+  const resultsEl = document.getElementById('searchResults');
+  if(!qRaw) return;
+  if(!eulerpoolKey){
+    resultsEl.innerHTML = `<div class="search-status">Enter your Eulerpool API key above first.</div>`;
+    return;
+  }
+
+  if(ISIN_RE.test(q)){
+    await lookupByIsin(q, resultsEl);
+    return;
+  }
+
+  const btn = document.getElementById('searchBtn');
+  btn.disabled = true;
+  btn.textContent = 'Searching…';
+  resultsEl.innerHTML = `<div class="search-status">Searching…</div>`;
+
+  try{
+    const res = await fetch(`https://api.eulerpool.com/api/1/search?query=${encodeURIComponent(qRaw)}&type=${encodeURIComponent(searchType)}&token=${encodeURIComponent(eulerpoolKey)}`);
+    const raw = await res.text();
+    let json = null;
+    try{ json = JSON.parse(raw); } catch(e){ /* not JSON */ }
+
+    logDebug(`search "${qRaw}" →\n${raw.slice(0,1500)}`);
+
+    if(!res.ok){
+      resultsEl.innerHTML = `<div class="search-status">Search failed (HTTP ${res.status}). This endpoint's exact path wasn't confirmed from Eulerpool's docs — check the debug panel, and if you find the right one, tell me and I'll fix the call.</div>`;
+      return;
+    }
+
+    // Try a few plausible shapes for the results array.
+    let items = null;
+    if(Array.isArray(json)) items = json;
+    else if(json && Array.isArray(json.results)) items = json.results;
+    else if(json && Array.isArray(json.data)) items = json.data;
+    else if(json && Array.isArray(json.items)) items = json.items;
+
+    if(!items || items.length===0){
+      resultsEl.innerHTML = `<div class="search-status">No results parsed from the response. Open the debug panel to see the raw JSON — the field names may just need mapping.</div>`;
+      return;
+    }
+
+    resultsEl.innerHTML = items.slice(0,8).map((item,idx)=>{
+      const name = item.name || item.longName || item.company || item.symbol || 'Unknown';
+      const isin = item.isin || item.ISIN || '';
+      const symbol = item.symbol || item.ticker || '';
+      const type = item.type || item.assetType || '';
+      const currency = item.currency || '';
+      return `
+        <div class="search-result-row">
+          <div class="search-result-info">
+            <div class="search-result-name">${esc(name)}</div>
+            <div class="search-result-meta">${esc(symbol)}${isin?' · '+esc(isin):''}${type?' · '+esc(type):''}${currency?' · '+esc(currency):''}</div>
+          </div>
+          <button type="button" class="search-add-btn" data-idx="${idx}" title="Add this fund" ${isin?'':'disabled'}>+</button>
+        </div>
+      `;
+    }).join('');
+
+    resultsEl.querySelectorAll('.search-add-btn').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const item = items[parseInt(btn.dataset.idx,10)];
+        const isin = item.isin || item.ISIN || '';
+        if(!isin) return;
+        const id = 'f'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+        const color = PALETTE[FUNDS.length % PALETTE.length];
+        const evenWeight = Math.round(100/(FUNDS.length+1));
+        const newFund = {
+          id,
+          name: item.name || item.longName || item.company || item.symbol || 'New fund',
+          code: item.symbol || item.ticker || 'TICK',
+          isin, assetType: searchType,
+          color, price:10, div:0.30, months:[3,6,9,12], weight:evenWeight
+        };
+        FUNDS.push(newFund);
+        rebuildAll();
+        await fetchOneFundPrice(newFund);
+        render();
+        document.getElementById('fundSearch').value = '';
+        resultsEl.innerHTML = `<div class="search-status">Added ${esc(newFund.code)} — scroll down to fill in its dividend/share and payout months.</div>`;
+      });
+    });
+  } catch(err){
+    resultsEl.innerHTML = `<div class="search-status">Search request failed: ${esc(err.message)} — most likely CORS. See debug panel.</div>`;
+    logDebug(`search "${q}" → fetch failed: ${err.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Search';
+  }
+}
+
+function resetFunds(){
+  FUNDS = defaultFunds();
+  rebuildAll();
+}
+
+// ---- Config: collect / apply / download / upload / save-to-server ----
+const CONFIG_VERSION = 1;
+
+function collectConfig(){
+  return {
+    version: CONFIG_VERSION,
+    savedAt: new Date().toISOString(),
+    targetIncome: parseFloat(document.getElementById('targetIncome').value)||0,
+    taxMode: taxMode,
+    flatRate: parseFloat(document.getElementById('flatRate').value)||0,
+    allocMode: document.getElementById('allocMode').value,
+    funds: FUNDS.map(f=>({
+      id:f.id, name:f.name, code:f.code, isin:f.isin||'', assetType:f.assetType||'etf', flagCode:f.flagCode||undefined,
+      color:f.color, price:f.price, div:f.div, months:f.months.slice(), weight:f.weight
+    }))
+  };
+}
+
+function applyConfig(cfg){
+  if(!cfg || !Array.isArray(cfg.funds) || cfg.funds.length===0){
+    throw new Error('Config file has no funds array — nothing to apply.');
+  }
+  FUNDS = cfg.funds.map((f,i)=>({
+    id: f.id || ('f'+Date.now().toString(36)+i),
+    name: f.name || 'Unnamed fund',
+    code: f.code || 'TICK',
+    isin: f.isin || '',
+    assetType: (f.assetType==='stock') ? 'stock' : 'etf',
+    flagCode: f.flagCode || undefined,
+    color: f.color || PALETTE[i % PALETTE.length],
+    price: typeof f.price==='number' ? f.price : 10,
+    div: typeof f.div==='number' ? f.div : 0,
+    months: Array.isArray(f.months) ? f.months : [3,6,9,12],
+    weight: typeof f.weight==='number' ? f.weight : Math.round(100/cfg.funds.length)
+  }));
+
+  if(typeof cfg.targetIncome==='number'){
+    document.getElementById('targetIncome').value = cfg.targetIncome;
+  }
+  if(cfg.taxMode==='spain'){
+    document.getElementById('btnSpain').click();
+  } else if(cfg.taxMode==='flat'){
+    document.getElementById('btnFlat').click();
+  }
+  if(typeof cfg.flatRate==='number'){
+    document.getElementById('flatRate').value = cfg.flatRate;
+  }
+  if(cfg.allocMode){
+    const sel = document.getElementById('allocMode');
+    sel.value = cfg.allocMode;
+    document.getElementById('weightsRow').classList.toggle('show', cfg.allocMode==='custom');
+  }
+
+  rebuildAll();
+}
+
+function setConfigStatus(msg, cls){
+  const el = document.getElementById('configStatus');
+  el.textContent = msg;
+  el.className = 'config-status' + (cls?' '+cls:'');
+}
+
+function downloadConfig(){
+  const cfg = collectConfig();
+  const blob = new Blob([JSON.stringify(cfg, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'dividend-ledger-config.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  setConfigStatus('Config downloaded.', 'ok');
+}
+
+function handleUploadFile(file){
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const cfg = JSON.parse(reader.result);
+      applyConfig(cfg);
+      setConfigStatus(`Loaded config from ${esc(file.name)} (saved ${cfg.savedAt || 'unknown time'}).`, 'ok');
+    } catch(err){
+      setConfigStatus(`Couldn't load that file: ${err.message}`, 'err');
+    }
+  };
+  reader.onerror = () => setConfigStatus('Failed to read the file.', 'err');
+  reader.readAsText(file);
+}
+
+// Saves current config to this browser's localStorage. Static deploy (Cloudflare Workers,
+// no backend) — persistence is per-browser only, not synced across devices. Use
+// Download/Upload to move a config between browsers/devices.
+const LOCAL_STORAGE_KEY = 'retireLedgerConfig';
+
+function saveConfigToLocalStorage(){
+  try{
+    const cfg = collectConfig();
+    cfg.savedAt = new Date().toISOString();
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cfg));
+    setConfigStatus('Saved as this browser\'s new default. Reopening this page here starts from this config; use Download to carry it to another browser/device.', 'ok');
+  } catch(err){
+    setConfigStatus(`Couldn't save to this browser's local storage: ${err.message}. Use Download instead to keep a copy for now.`, 'err');
+  }
+}
+
+// On load: try to read a locally-saved config; fall back to the hardcoded defaults silently
+// if nothing's been saved on this browser yet.
+async function loadConfigFromLocalStorage(){
+  try{
+    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if(!raw) return false;
+    const cfg = JSON.parse(raw);
+    applyConfig(cfg);
+    setConfigStatus(`Loaded this browser's saved config from ${cfg.savedAt || 'a previous save'}.`, 'ok');
+    return true;
+  } catch(err){
+    return false;
+  }
+}
+
+function render(){
+  const targetNet = parseFloat(document.getElementById('targetIncome').value)||0;
+  const grossTotal = grossFromNetTarget(targetNet);
+  const netTotal = netFromGross(grossTotal);
+  const blendedRate = grossTotal>0 ? 1-(netTotal/grossTotal) : 0;
+  const weights = currentWeights();
+
+  let sumInvest=0, sumShares=0, sumNet=0, sumGross=0;
+  const perFundMonthly = FUNDS.map(()=>({}));
+
+  FUNDS.forEach((f,i)=>{
+    const price = parseFloat(document.getElementById('price-'+f.id)?.value)||0.01;
+    const div = parseFloat(document.getElementById('divps-'+f.id)?.value)||0;
+    const w = weights[i]||0;
+    const grossInc = grossTotal*w;
+    const netInc = grossInc*(1-blendedRate);
+    const shares = div>0 ? grossInc/div : 0;
+    const invest = shares*price;
+    const yld = div/price;
+
+    const set = (cls,val) => { const el = document.querySelector('.'+cls+'-'+f.id); if(el) el.textContent = val; };
+    set('yield', pct(yld));
+    set('netdiv', eur2(div*(1-blendedRate)));
+    set('weight', pct(w));
+    set('shares', Math.round(shares).toLocaleString('es-ES'));
+    set('invest', eur(invest));
+    set('netinc', eur(netInc));
+    set('netq', eur(netInc/4));
+
+    sumInvest+=invest; sumShares+=shares; sumNet+=netInc; sumGross+=grossInc;
+
+    const perQuarter = f.months.length>0 ? netInc/f.months.length : 0;
+    f.months.forEach(m=>{ perFundMonthly[i][m]=perQuarter; });
+  });
+
+  document.getElementById('totalsRow').innerHTML = `
+    <td>Portfolio total (${FUNDS.length} fund${FUNDS.length===1?'':'s'})</td>
+    <td></td><td></td><td></td><td></td>
+    <td>${pct(weights.reduce((a,b)=>a+b,0))}</td>
+    <td class="mono">${Math.round(sumShares).toLocaleString('es-ES')}</td>
+    <td class="mono">${eur(sumInvest)}</td>
+    <td class="mono">${eur(sumNet)}</td>
+    <td class="mono">${eur(sumNet/4)}</td>
+  `;
+
+  const wt = document.getElementById('weightTotal');
+  if(document.getElementById('allocMode').value==='custom'){
+    const raw = FUNDS.reduce((s,f)=>s+(parseFloat(document.getElementById('w-'+f.id)?.value)||0),0);
+    wt.textContent = `Weights sum to ${raw}% — normalised automatically to 100%.`;
+    wt.className = 'weight-total' + (Math.abs(raw-100)>0.5?' warn':'');
+  } else {
+    wt.textContent='';
+  }
+
+  const cal = document.getElementById('calendar');
+  cal.innerHTML = MONTH_NAMES.map((name,idx)=>{
+    const m = idx+1;
+    const parts = [];
+    let total = 0;
+    FUNDS.forEach((f,i)=>{
+      if(perFundMonthly[i][m]){
+        parts.push({color:f.color});
+        total += perFundMonthly[i][m];
+      }
+    });
+    const active = parts.length>0;
+    const bars = parts.map(p=>`<div class="fund-bar" style="background:${p.color}"></div>`).join('');
+    return `
+      <div class="month-cell ${active?'active':''}">
+        <div class="month-label">${name}</div>
+        <div class="month-bars">${bars}</div>
+        <div class="month-total ${active?'':'zero'}">${active?eur(total):'—'}</div>
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('legend').innerHTML = FUNDS.map(f=>`
+    <div class="legend-item"><span class="swatch" style="background:${f.color}"></span>${esc(f.code)} · pays ${f.months.length? f.months.slice().sort((a,b)=>a-b).map(m=>MONTH_NAMES[m-1]).join('/') : 'never (no months selected)'}</div>
+  `).join('');
+
+  const monthsPaying = MONTH_NAMES.filter((_,idx)=>{
+    return FUNDS.some((f,i)=>perFundMonthly[i][idx+1]);
+  }).length;
+
+  document.getElementById('summaryStrip').innerHTML = `
+    <div class="summary-cell">
+      <div class="s-label">Total capital required</div>
+      <div class="s-value">${eur(sumInvest)}</div>
+      <div class="s-sub">at current prices above</div>
+    </div>
+    <div class="summary-cell">
+      <div class="s-label">Net annual income</div>
+      <div class="s-value">${eur(sumNet)}</div>
+      <div class="s-sub">target was ${eur(targetNet)}</div>
+    </div>
+    <div class="summary-cell">
+      <div class="s-label">Gross annual dividends</div>
+      <div class="s-value">${eur(sumGross)}</div>
+      <div class="s-sub">blended tax rate ${pct(blendedRate)}</div>
+    </div>
+    <div class="summary-cell">
+      <div class="s-label">Months with a payout</div>
+      <div class="s-value">${monthsPaying} / 12</div>
+      <div class="s-sub">${Math.round(sumNet/12).toLocaleString('es-ES')} € avg / month</div>
+    </div>
+  `;
+}
+
+// ---- wire up ----
+document.getElementById('btnFlat').addEventListener('click',()=>{
+  taxMode='flat';
+  document.getElementById('btnFlat').classList.add('active');
+  document.getElementById('btnSpain').classList.remove('active');
+  document.getElementById('flatRateBox').style.display='flex';
+  document.getElementById('spainBox').style.display='none';
+  render();
+});
+document.getElementById('btnSpain').addEventListener('click',()=>{
+  taxMode='spain';
+  document.getElementById('btnSpain').classList.add('active');
+  document.getElementById('btnFlat').classList.remove('active');
+  document.getElementById('flatRateBox').style.display='none';
+  document.getElementById('spainBox').style.display='block';
+  render();
+});
+document.getElementById('allocMode').addEventListener('change',(e)=>{
+  document.getElementById('weightsRow').classList.toggle('show', e.target.value==='custom');
+  render();
+});
+['targetIncome','flatRate'].forEach(id=>document.getElementById(id).addEventListener('input',render));
+document.getElementById('addFundBtn').addEventListener('click', addFund);
+document.getElementById('resetFundsBtn').addEventListener('click', resetFunds);
+document.getElementById('saveDefaultsBtn').addEventListener('click', saveConfigToLocalStorage);
+document.getElementById('downloadConfigBtn').addEventListener('click', downloadConfig);
+document.getElementById('uploadConfigBtn').addEventListener('click', ()=>document.getElementById('uploadConfigInput').click());
+document.getElementById('uploadConfigInput').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(file) handleUploadFile(file);
+  e.target.value = '';
+});
+document.getElementById('eulerpoolKey').addEventListener('input', e=>{ eulerpoolKey = e.target.value.trim(); });
+document.getElementById('refreshBtn').addEventListener('click', fetchLivePrices);
+document.getElementById('searchBtn').addEventListener('click', searchInstruments);
+document.querySelectorAll('.search-type-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    searchType = btn.dataset.type;
+    document.querySelectorAll('.search-type-btn').forEach(b=>b.classList.toggle('active', b===btn));
+  });
+});
+document.getElementById('fundSearch').addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ e.preventDefault(); searchInstruments(); }
+});
+
+// Try loading a server-saved config first; fall back to hardcoded defaults if none.
+loadConfigFromLocalStorage().then(loaded=>{
+  if(!loaded) rebuildAll();
+});
+</script>
+</body>
+</html>

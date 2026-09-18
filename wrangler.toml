@@ -1,0 +1,10 @@
+# Cloudflare Workers Builds config for a static-assets-only deployment
+# (no Worker script, no build step — this is a hand-authored single-page
+# app, not a generator output). See
+# https://developers.cloudflare.com/workers/static-assets/ for background.
+name = "retire-ledger"
+compatibility_date = "2026-09-18"
+
+[assets]
+directory = "html"
+not_found_handling = "404-page"
