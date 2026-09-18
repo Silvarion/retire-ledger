@@ -212,6 +212,10 @@
     border-top:1px solid var(--border);
     border-bottom:none;
   }
+  .fund-empty-row{
+    text-align:center;color:var(--text-faint);font-size:13px;
+    padding:32px 14px !important;white-space:normal !important;
+  }
   .flag{
     display:inline-block;font-size:10px;color:var(--bad);
     border:1px solid rgba(193,99,58,0.4);background:rgba(193,99,58,0.08);
@@ -517,7 +521,7 @@
       <div class="section-num">02 — Holdings</div>
       <h2>Fund data</h2>
     </div>
-    <div class="section-note">Name, ticker, ISIN, price, gross dividend/share, and payout months are all editable — add new funds or remove any of the defaults. Defaults are approximate figures from public sources (justETF, DivvyDiary, Yahoo Finance, stockanalysis.com) as of 19 Aug 2026. Verify against your broker before acting.</div>
+    <div class="section-note">Name, ticker, ISIN, price, gross dividend/share, and payout months are all editable. Search for a fund above or click "+ Add fund" below to start building your own list.</div>
   </div>
 
   <div class="live-controls">
@@ -569,7 +573,7 @@
   <div class="table-actions">
     <div class="table-actions-group">
       <button class="add-fund-btn" id="addFundBtn">+ Add fund</button>
-      <button class="reset-link" id="resetFundsBtn">Reset to the four defaults</button>
+      <button class="reset-link" id="resetFundsBtn">Clear all funds</button>
     </div>
     <div class="table-actions-group">
       <button class="add-fund-btn" id="saveDefaultsBtn">Save as new defaults</button>
@@ -624,16 +628,7 @@ const PALETTE = ['#C9A227','#4FA6A0','#B3502F','#6C86B5','#8B6FB3','#6B9B4F','#B
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function defaultFunds(){
-  return [
-    { id:'ehdv', name:'Invesco EURO STOXX High Dividend Low Volatility UCITS ETF', code:'EHDV', isin:'IE00BZ4BMM98', assetType:'etf',
-      color:PALETTE[0], price:34.94, div:1.31, months:[1,4,7,10], weight:25 },
-    { id:'iqqy', name:'iShares Core MSCI Europe UCITS ETF EUR (Dist)', code:'IQQY', isin:'IE00B1YZSC51', assetType:'etf',
-      color:PALETTE[1], price:41.35, div:0.99, months:[1,4,7,10], weight:25 },
-    { id:'vusa', name:'Vanguard S&P 500 UCITS ETF', code:'VUSA', isin:'IE00B3XXRP09', assetType:'etf',
-      color:PALETTE[2], price:123.70, div:1.08, months:[3,6,9,12], weight:25 },
-    { id:'exi2', name:'iShares STOXX Europe 600 Banks UCITS ETF (DE)', code:'EXI2', flagCode:'EXV1', isin:'DE000A0F5UJ7', assetType:'etf',
-      color:PALETTE[3], price:42.80, div:1.44, months:[2,5,8,11], weight:25 }
-  ];
+  return [];
 }
 
 let FUNDS = defaultFunds();
@@ -889,13 +884,19 @@ function renderScheduleTable(f){
 }
 
 function buildFundBody(){
+  if(FUNDS.length===0){
+    document.getElementById('fundBody').innerHTML = `
+      <tr><td colspan="10" class="fund-empty-row">No funds yet — search above or click "+ Add fund" below to start building your list.</td></tr>
+    `;
+    return;
+  }
   document.getElementById('fundBody').innerHTML = FUNDS.map(f=>`
     <tr>
       <td class="fund-cell">
         <div class="fund-cell-top">
           <span class="swatch" style="background:${f.color}"></span>
           <input class="fname" type="text" id="name-${f.id}" value="${esc(f.name)}">
-          <button class="remove-fund-btn" data-id="${f.id}" title="Remove fund" ${FUNDS.length<=1?'disabled':''}>×</button>
+          <button class="remove-fund-btn" data-id="${f.id}" title="Remove fund">×</button>
         </div>
         <input class="fcode mono" type="text" id="code-${f.id}" value="${esc(f.code)}">
         <input class="isin-input mono" type="text" id="isin-${f.id}" placeholder="ISIN (for live price)" value="${esc(f.isin||'')}">
@@ -999,7 +1000,6 @@ function buildFundBody(){
   });
   document.querySelectorAll('.remove-fund-btn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      if(FUNDS.length<=1) return;
       FUNDS = FUNDS.filter(f=>f.id!==btn.dataset.id);
       rebuildAll();
     });
@@ -1628,7 +1628,7 @@ function collectConfig(){
 }
 
 function applyConfig(cfg){
-  if(!cfg || !Array.isArray(cfg.funds) || cfg.funds.length===0){
+  if(!cfg || !Array.isArray(cfg.funds)){
     throw new Error('Config file has no funds array — nothing to apply.');
   }
   FUNDS = cfg.funds.map((f,i)=>({
