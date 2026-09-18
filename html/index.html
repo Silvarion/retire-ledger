@@ -458,16 +458,25 @@
       <label>Tax treatment</label>
       <div class="tax-toggle">
         <button id="btnFlat" class="active">Flat rate</button>
-        <button id="btnSpain">Spanish savings brackets</button>
+        <button id="btnCountry">Estimate by country</button>
       </div>
       <div id="flatRateBox" class="flat-rate-row">
         <input type="number" id="flatRate" value="19" min="0" max="60" step="0.5">
         <span style="font-size:13px;color:var(--text-dim);">% applied to all dividend income</span>
       </div>
-      <div id="spainBox" class="brackets-list" style="display:none;">
-        <div><b>19%</b> up to €6,000 &nbsp;·&nbsp; <b>21%</b> €6,000–50,000</div>
-        <div><b>23%</b> €50,000–200,000 &nbsp;·&nbsp; <b>27%</b> €200,000–300,000 &nbsp;·&nbsp; <b>30%</b> above</div>
-        <div style="margin-top:6px;color:var(--text-faint);">2026 IRPF base del ahorro (state scale). Applied progressively to total gross dividend income; blended rate shown in results. Bracket thresholds (€6,000 etc.) are fixed by Spanish law in euros and are <b>not</b> converted when you switch currency above — only use this option while your figures are actually in EUR, or the blended rate will be calculated against the wrong-currency amount.</div>
+      <div id="countryBox" style="display:none;">
+        <select id="taxCountry"></select>
+        <div id="countryRateRow" class="flat-rate-row" style="margin-top:10px;">
+          <input type="number" id="countryFlatRate" min="0" max="60" step="0.5">
+          <span style="font-size:13px;color:var(--text-dim);">% estimated rate — editable</span>
+        </div>
+        <div id="countrySpainBrackets" class="brackets-list" style="display:none;margin-top:10px;">
+          <div><b>19%</b> up to €6,000 &nbsp;·&nbsp; <b>21%</b> €6,000–50,000</div>
+          <div><b>23%</b> €50,000–200,000 &nbsp;·&nbsp; <b>27%</b> €200,000–300,000 &nbsp;·&nbsp; <b>30%</b> above</div>
+          <div style="margin-top:6px;">2026 IRPF base del ahorro (state scale), applied progressively to total gross dividend income — the one country here using its exact real brackets instead of a single estimated rate. Fixed by Spanish law in euros and <b>not</b> converted when you switch currency above — only accurate while your figures are actually in EUR.</div>
+        </div>
+        <div id="countryNote" class="brackets-list" style="margin-top:8px;"></div>
+        <div class="brackets-list" style="margin-top:8px;"><b>Estimate only, not tax advice.</b> A single representative number per country for quick planning — real tax owed depends on your income level, residency, account type, applicable tax treaties, allowances, and changes over time. Verify with a tax professional or your local tax authority before relying on this.</div>
       </div>
     </div>
 
@@ -605,7 +614,32 @@ function defaultFunds(){
 }
 
 let FUNDS = defaultFunds();
-let taxMode = 'flat'; // 'flat' | 'spain'
+let taxMode = 'flat'; // 'flat' | 'country'
+let taxCountry = 'ES';
+
+// Single-number ESTIMATES of typical dividend/investment-income tax, for
+// quick planning only — not tax advice. Spain (rate:null) is the one
+// country with exact data (see spainTax() below); every other entry is a
+// commonly-cited representative figure, picked knowing several countries'
+// real systems (dividend imputation/franking credits, gross-up mechanisms,
+// separate wealth-tax regimes, marginal-rate income tax) don't actually
+// reduce to one flat rate — that's exactly why "Estimate only, not tax
+// advice" is shown unconditionally in this mode, plus a per-country note
+// here calling out the specific simplification for the trickier ones.
+const COUNTRY_TAX_ESTIMATES = {
+  ES: { name:'Spain', rate:null, note:'Uses the exact 2026 IRPF progressive savings-income brackets shown below, not a flat estimate.' },
+  AU: { name:'Australia', rate:30, note:'Rough placeholder — Australia uses a dividend imputation/franking-credit system, not a flat rate; your real effective rate likely differs.' },
+  CA: { name:'Canada', rate:25, note:'Rough placeholder — Canada taxes eligible dividends via a gross-up/dividend-tax-credit mechanism, not a flat rate.' },
+  FR: { name:'France', rate:30, note:'"Flat tax" (Prélèvement Forfaitaire Unique) — combined income tax and social contributions.' },
+  DE: { name:'Germany', rate:26.375, note:'Abgeltungsteuer (25%) plus the Solidaritätszuschlag surcharge.' },
+  IE: { name:'Ireland', rate:33, note:'Rough placeholder — Irish dividend income is taxed at your marginal income tax rate plus USC/PRSI, often well above this figure.' },
+  IT: { name:'Italy', rate:26, note:'Imposta sostitutiva on dividends and capital gains.' },
+  NL: { name:'Netherlands', rate:24, note:'Rough placeholder — Dutch investment income (Box 2/3) is taxed on a deemed return, not a flat rate on realized dividends.' },
+  PT: { name:'Portugal', rate:28, note:'Flat withholding tax on dividend income.' },
+  CH: { name:'Switzerland', rate:0, note:'Private capital gains are typically tax-free, but dividend income is taxed as ordinary income at your marginal rate — 0% is a placeholder, edit the field above.' },
+  GB: { name:'United Kingdom', rate:8.75, note:'Basic-rate dividend tax band after the annual dividend allowance — higher/additional-rate taxpayers pay 33.75%/39.35%.' },
+  US: { name:'United States', rate:15, note:'Federal long-term qualified-dividend rate, most common bracket — excludes state tax and the Net Investment Income Tax.' },
+};
 
 // Switching currency below actually converts every money figure on the page
 // (target income, fund prices, fund dividends) using a live daily rate — see
@@ -721,16 +755,46 @@ function spainTax(gross){
   }
   return tax;
 }
+
+function populateCountrySelect(){
+  const sel = document.getElementById('taxCountry');
+  sel.innerHTML = Object.keys(COUNTRY_TAX_ESTIMATES).map(code=>
+    `<option value="${code}">${esc(COUNTRY_TAX_ESTIMATES[code].name)}</option>`
+  ).join('');
+  sel.value = taxCountry;
+}
+
+// Shows the right sub-control (Spain's real brackets vs. an editable flat-rate
+// estimate) and note for whichever country is currently selected.
+function applyCountrySelection(){
+  const c = COUNTRY_TAX_ESTIMATES[taxCountry];
+  const isSpain = c.rate===null;
+  document.getElementById('countryRateRow').style.display = isSpain ? 'none' : 'flex';
+  document.getElementById('countrySpainBrackets').style.display = isSpain ? 'block' : 'none';
+  if(!isSpain){
+    document.getElementById('countryFlatRate').value = c.rate;
+  }
+  document.getElementById('countryNote').textContent = c.note;
+}
+
 function netFromGross(gross){
   if(taxMode==='flat'){
     const r = parseFloat(document.getElementById('flatRate').value)||0;
     return gross*(1-r/100);
   }
-  return gross - spainTax(gross);
+  if(taxCountry==='ES'){
+    return gross - spainTax(gross);
+  }
+  const r = parseFloat(document.getElementById('countryFlatRate').value)||0;
+  return gross*(1-r/100);
 }
 function grossFromNetTarget(targetNet){
   if(taxMode==='flat'){
     const r = parseFloat(document.getElementById('flatRate').value)||0;
+    return targetNet/(1-r/100);
+  }
+  if(taxCountry!=='ES'){
+    const r = parseFloat(document.getElementById('countryFlatRate').value)||0;
     return targetNet/(1-r/100);
   }
   let lo=0, hi=Math.max(targetNet*2,1000)+300000;
@@ -1261,6 +1325,8 @@ function collectConfig(){
     currency: currentCurrency,
     taxMode: taxMode,
     flatRate: parseFloat(document.getElementById('flatRate').value)||0,
+    taxCountry: taxCountry,
+    countryFlatRate: parseFloat(document.getElementById('countryFlatRate').value)||0,
     allocMode: document.getElementById('allocMode').value,
     funds: FUNDS.map(f=>({
       id:f.id, name:f.name, code:f.code, isin:f.isin||'', assetType:f.assetType||'etf', flagCode:f.flagCode||undefined,
@@ -1295,13 +1361,30 @@ function applyConfig(cfg){
     document.getElementById('currencySelect').value = currentCurrency;
     updateCurrencyLabels();
   }
-  if(cfg.taxMode==='spain'){
-    document.getElementById('btnSpain').click();
+  // 'spain' is the pre-2026-09 saved value, from back when Spain was its own
+  // toggle button rather than one entry in the country dropdown — map it
+  // onto the generalized 'country'/'ES' shape so old saved configs/exports
+  // still load correctly.
+  const wantsCountryMode = cfg.taxMode==='country' || cfg.taxMode==='spain';
+  if(wantsCountryMode){
+    document.getElementById('btnCountry').click();
   } else if(cfg.taxMode==='flat'){
     document.getElementById('btnFlat').click();
   }
   if(typeof cfg.flatRate==='number'){
     document.getElementById('flatRate').value = cfg.flatRate;
+  }
+  if(wantsCountryMode){
+    if(typeof cfg.taxCountry==='string' && COUNTRY_TAX_ESTIMATES[cfg.taxCountry]){
+      taxCountry = cfg.taxCountry;
+    } else {
+      taxCountry = 'ES'; // covers the old 'spain' shape, which had no country field at all
+    }
+    document.getElementById('taxCountry').value = taxCountry;
+    applyCountrySelection();
+    if(typeof cfg.countryFlatRate==='number' && taxCountry!=='ES'){
+      document.getElementById('countryFlatRate').value = cfg.countryFlatRate;
+    }
   }
   if(cfg.allocMode){
     const sel = document.getElementById('allocMode');
@@ -1489,6 +1572,8 @@ function render(){
 // ---- wire up ----
 populateCurrencySelect();
 updateCurrencyLabels();
+populateCountrySelect();
+applyCountrySelection();
 document.getElementById('currencySelect').addEventListener('change', async e=>{
   const newCurrency = e.target.value;
   const oldCurrency = currentCurrency;
@@ -1509,24 +1594,29 @@ document.getElementById('currencySelect').addEventListener('change', async e=>{
 document.getElementById('btnFlat').addEventListener('click',()=>{
   taxMode='flat';
   document.getElementById('btnFlat').classList.add('active');
-  document.getElementById('btnSpain').classList.remove('active');
+  document.getElementById('btnCountry').classList.remove('active');
   document.getElementById('flatRateBox').style.display='flex';
-  document.getElementById('spainBox').style.display='none';
+  document.getElementById('countryBox').style.display='none';
   render();
 });
-document.getElementById('btnSpain').addEventListener('click',()=>{
-  taxMode='spain';
-  document.getElementById('btnSpain').classList.add('active');
+document.getElementById('btnCountry').addEventListener('click',()=>{
+  taxMode='country';
+  document.getElementById('btnCountry').classList.add('active');
   document.getElementById('btnFlat').classList.remove('active');
   document.getElementById('flatRateBox').style.display='none';
-  document.getElementById('spainBox').style.display='block';
+  document.getElementById('countryBox').style.display='block';
+  render();
+});
+document.getElementById('taxCountry').addEventListener('change', e=>{
+  taxCountry = e.target.value;
+  applyCountrySelection();
   render();
 });
 document.getElementById('allocMode').addEventListener('change',(e)=>{
   document.getElementById('weightsRow').classList.toggle('show', e.target.value==='custom');
   render();
 });
-['targetIncome','flatRate'].forEach(id=>document.getElementById(id).addEventListener('input',render));
+['targetIncome','flatRate','countryFlatRate'].forEach(id=>document.getElementById(id).addEventListener('input',render));
 document.getElementById('addFundBtn').addEventListener('click', addFund);
 document.getElementById('resetFundsBtn').addEventListener('click', resetFunds);
 document.getElementById('saveDefaultsBtn').addEventListener('click', saveConfigToLocalStorage);
