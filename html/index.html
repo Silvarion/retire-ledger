@@ -447,6 +447,29 @@
   .data-attribution a:hover{color:var(--gold);border-bottom-color:var(--gold);}
   .data-attribution .dot{width:5px;height:5px;border-radius:50%;background:var(--good);flex:none;}
   .data-attribution.offline .dot{background:var(--text-faint);}
+
+  /* ---- print / "Save as PDF" ----
+     Re-defines the same custom properties every rule on this page already reads from,
+     so a full light-mode theme falls out for free without touching those other rules.
+     .no-print hides interactive-only chrome (API keys, search, debug panel, buttons);
+     an already-expanded payment-schedule row still prints, a collapsed one still doesn't
+     — this mirrors on-screen state rather than forcing every schedule open. */
+  @media print{
+    :root{
+      --bg:#FFFFFF; --panel:#FFFFFF; --panel-alt:#F3F1EA;
+      --border:#CBB98A; --border-soft:#E4DFCF;
+      --text:#1A1408; --text-dim:#3A3226; --text-faint:#6B6250;
+      --gold:#8A6D1A; --gold-soft:#F3E9C8;
+      --good:#2F6B4F; --bad:#8A3A1E;
+    }
+    body{background:#fff;padding-bottom:0;}
+    .no-print{display:none !important;}
+    input, select{border-color:transparent !important;background:transparent !important;}
+    .fund-table-wrap{overflow:visible;border:none;}
+    table{min-width:0;font-size:10.5px;}
+    .summary-strip{page-break-inside:avoid;}
+    tbody tr{page-break-inside:avoid;}
+  }
 </style>
 </head>
 <body>
@@ -524,14 +547,14 @@
     <div class="section-note">Name, ticker, ISIN, price, gross dividend/share, and payout months are all editable. Search for a fund above or click "+ Add fund" below to start building your own list.</div>
   </div>
 
-  <div class="live-controls">
-    <input type="password" id="eulerpoolKey" placeholder="Eulerpool API key — kept in this tab's memory only, never saved" autocomplete="off">
-    <input type="password" id="twelveDataKey" placeholder="Twelve Data API key — kept in this tab's memory only, never saved" autocomplete="off">
+  <div class="live-controls no-print">
+    <input type="password" id="eulerpoolKey" placeholder="Eulerpool API key — saved to this browser only when you click Save as new defaults" autocomplete="off">
+    <input type="password" id="twelveDataKey" placeholder="Twelve Data API key — saved to this browser only when you click Save as new defaults" autocomplete="off">
     <button class="refresh-btn" id="refreshBtn">Refresh live prices</button>
     <div class="live-hint">Each fund remembers which of the two providers it was added from (shown next to its live-price status) and refreshes from that one. Eulerpool covers European UCITS ETFs well; Twelve Data has broader global/US stock coverage and a higher free-tier limit. Funds with no ISIN/ticker filled in below are skipped and keep their manual price.</div>
   </div>
 
-  <div class="search-box">
+  <div class="search-box no-print">
     <div class="search-type-toggle" id="searchProviderToggle">
       <button type="button" class="search-type-btn active" data-provider="eulerpool">Eulerpool</button>
       <button type="button" class="search-type-btn" data-provider="twelvedata">Twelve Data</button>
@@ -570,7 +593,7 @@
       </tbody>
     </table>
   </div>
-  <div class="table-actions">
+  <div class="table-actions no-print">
     <div class="table-actions-group">
       <button class="add-fund-btn" id="addFundBtn">+ Add fund</button>
       <button class="reset-link" id="resetFundsBtn">Clear all funds</button>
@@ -581,9 +604,13 @@
       <button class="add-fund-btn" id="uploadConfigBtn">Upload config</button>
       <input type="file" id="uploadConfigInput" accept="application/json,.json" style="display:none;">
     </div>
+    <div class="table-actions-group">
+      <button class="add-fund-btn" id="downloadCsvBtn" title="Spreadsheet-friendly export of the fund table — opens in Excel/Sheets/Numbers">Download CSV</button>
+      <button class="add-fund-btn" id="printReportBtn" title="Opens the browser's print dialog — choose &quot;Save as PDF&quot; there for a shareable document">Print / Save as PDF</button>
+    </div>
   </div>
   <div class="config-status" id="configStatus"></div>
-  <details class="debug-panel">
+  <details class="debug-panel no-print">
     <summary>API responses (debug — open this if a fetch doesn't behave as expected)</summary>
     <div class="debug-log" id="debugLog">No requests made yet.</div>
   </details>
@@ -896,15 +923,15 @@ function buildFundBody(){
         <div class="fund-cell-top">
           <span class="swatch" style="background:${f.color}"></span>
           <input class="fname" type="text" id="name-${f.id}" value="${esc(f.name)}">
-          <button class="remove-fund-btn" data-id="${f.id}" title="Remove fund">×</button>
+          <button class="remove-fund-btn no-print" data-id="${f.id}" title="Remove fund">×</button>
         </div>
         <input class="fcode mono" type="text" id="code-${f.id}" value="${esc(f.code)}">
         <input class="isin-input mono" type="text" id="isin-${f.id}" placeholder="ISIN (for live price)" value="${esc(f.isin||'')}">
-        <div class="asset-type-toggle" data-id="${f.id}">
+        <div class="asset-type-toggle no-print" data-id="${f.id}">
           <button type="button" class="asset-type-btn ${f.assetType!=='stock'?'active':''}" data-id="${f.id}" data-type="etf">ETF</button>
           <button type="button" class="asset-type-btn ${f.assetType==='stock'?'active':''}" data-id="${f.id}" data-type="stock">Stock</button>
         </div>
-        <div class="asset-type-toggle" data-id="${f.id}" style="margin-top:4px;">
+        <div class="asset-type-toggle no-print" data-id="${f.id}" style="margin-top:4px;">
           <button type="button" class="datasource-btn ${(f.dataSource||'eulerpool')!=='twelvedata'?'active':''}" data-id="${f.id}" data-source="eulerpool" title="Fetch this fund's live price/dividends from Eulerpool">Eulerpool</button>
           <button type="button" class="datasource-btn ${f.dataSource==='twelvedata'?'active':''}" data-id="${f.id}" data-source="twelvedata" title="Fetch this fund's live price/dividends from Twelve Data">Twelve Data</button>
         </div>
@@ -912,11 +939,11 @@ function buildFundBody(){
         <div class="month-picker">
           ${MONTH_NAMES.map((mn,idx)=>`<button type="button" class="month-chip ${f.months.includes(idx+1)?'on':''}" data-id="${f.id}" data-m="${idx+1}" title="${mn}">${mn[0]}</button>`).join('')}
         </div>
-        <button type="button" class="schedule-toggle-btn" data-id="${f.id}">Payment schedule ▾</button>
+        <button type="button" class="schedule-toggle-btn no-print" data-id="${f.id}">Payment schedule ▾</button>
       </td>
       <td class="price-cell">
         <input type="number" id="price-${f.id}" value="${f.price}" step="0.01" min="0.01">
-        <div class="live-status"><span class="live-dot" id="livedot-${f.id}"></span><span id="livetext-${f.id}">${liveStatusPlaceholder(f)}</span></div>
+        <div class="live-status no-print"><span class="live-dot" id="livedot-${f.id}"></span><span id="livetext-${f.id}">${liveStatusPlaceholder(f)}</span></div>
       </td>
       <td><input type="number" id="divps-${f.id}" value="${f.div}" step="0.01" min="0"></td>
       <td class="mono yield-${f.id}"></td>
@@ -1709,6 +1736,81 @@ function downloadConfig(){
   setConfigStatus('Config downloaded.', 'ok');
 }
 
+function taxModeDescription(){
+  if(taxMode==='flat'){
+    return `Flat rate: ${document.getElementById('flatRate').value}%`;
+  }
+  if(taxCountry==='ES'){
+    return 'Country estimate: Spain (exact 2026 IRPF progressive savings-income brackets)';
+  }
+  const c = COUNTRY_TAX_ESTIMATES[taxCountry];
+  return `Country estimate: ${c.name} (~${document.getElementById('countryFlatRate').value}% — rough estimate, not tax advice)`;
+}
+
+function csvEscape(value){
+  const s = String(value===undefined||value===null ? '' : value);
+  return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+}
+
+// ---- CSV export ----
+// A spreadsheet-friendly export of the fund table for people who aren't going to load
+// this back into the app — unlike Download/Upload's JSON (which round-trips the app's
+// own state), this reads the already-rendered, already-formatted DOM cells directly
+// (same values shown on screen) rather than recomputing anything, so it can never drift
+// from what the table actually displays.
+function buildCsv(){
+  const cellText = (f, cls) => { const el = document.querySelector('.'+cls+'-'+f.id); return el ? el.textContent : ''; };
+  const columns = [
+    { label:'Fund', get:f=>f.name },
+    { label:'Ticker', get:f=>f.code },
+    { label:'ISIN', get:f=>f.isin||'' },
+    { label:'Type', get:f=>f.assetType||'etf' },
+    { label:'Data source', get:f=>f.dataSource==='twelvedata'?'Twelve Data':'Eulerpool' },
+    { label:`Price (${currencySymbol(currentCurrency)})`, get:f=>document.getElementById('price-'+f.id)?.value ?? f.price },
+    { label:'Gross div/share', get:f=>document.getElementById('divps-'+f.id)?.value ?? f.div },
+    { label:'Gross yield', get:f=>cellText(f,'yield') },
+    { label:'Net div/share', get:f=>cellText(f,'netdiv') },
+    { label:'Weight', get:f=>cellText(f,'weight'), totalsCol:5 },
+    { label:'Shares needed', get:f=>cellText(f,'shares'), totalsCol:6 },
+    { label:'Investment required', get:f=>cellText(f,'invest'), totalsCol:7 },
+    { label:'Net annual income', get:f=>cellText(f,'netinc'), totalsCol:8 },
+    { label:'Net per quarter', get:f=>cellText(f,'netq'), totalsCol:9 },
+    { label:'Payout months', get:f=>f.months.slice().sort((a,b)=>a-b).map(m=>MONTH_NAMES[m-1]).join(', ') }
+  ];
+
+  const rows = [
+    ['Dividend Income Ledger export'],
+    ['Generated', new Date().toISOString()],
+    ['Currency', currentCurrency],
+    ['Target net annual income', document.getElementById('targetIncome').value],
+    ['Tax treatment', taxModeDescription()],
+    [],
+    columns.map(c=>c.label)
+  ];
+  FUNDS.forEach(f=> rows.push(columns.map(c=>c.get(f))));
+  if(FUNDS.length>0){
+    const totalsCells = document.querySelectorAll('#totalsRow td');
+    const totalsRow = columns.map(()=>'');
+    totalsRow[0] = `Totals (${FUNDS.length} fund${FUNDS.length===1?'':'s'})`;
+    columns.forEach((c,i)=>{ if(typeof c.totalsCol==='number' && totalsCells[c.totalsCol]) totalsRow[i]=totalsCells[c.totalsCol].textContent; });
+    rows.push(totalsRow);
+  }
+  return rows.map(r=>r.map(csvEscape).join(',')).join('\r\n');
+}
+
+function downloadCsv(){
+  const blob = new Blob([buildCsv()], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'dividend-ledger-export.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  setConfigStatus('CSV exported.', 'ok');
+}
+
 function handleUploadFile(file){
   const reader = new FileReader();
   reader.onload = () => {
@@ -1729,12 +1831,47 @@ function handleUploadFile(file){
 // Download/Upload to move a config between browsers/devices.
 const LOCAL_STORAGE_KEY = 'retireLedgerConfig';
 
+// API keys live in a SEPARATE localStorage key from the config above, on purpose: keeping
+// them out of the same object means they can never accidentally end up in collectConfig()'s
+// output, and therefore never in a Download/Upload file, the printable report, or anything
+// else that's meant to be shareable. Only saved here when the user explicitly clicks "Save
+// as new defaults" (not on every keystroke) -- see saveConfigToLocalStorage() below.
+const API_KEYS_STORAGE_KEY = 'retireLedgerApiKeys';
+
+function saveApiKeysToLocalStorage(){
+  try{
+    localStorage.setItem(API_KEYS_STORAGE_KEY, JSON.stringify({ eulerpoolKey, twelveDataKey }));
+  } catch(err){
+    // Non-fatal -- the config itself still saves fine even if this fails (e.g. storage full
+    // or disabled); the user just has to re-paste their keys next visit.
+  }
+}
+
+function loadApiKeysFromLocalStorage(){
+  try{
+    const raw = localStorage.getItem(API_KEYS_STORAGE_KEY);
+    if(!raw) return;
+    const keys = JSON.parse(raw);
+    if(typeof keys.eulerpoolKey==='string'){
+      eulerpoolKey = keys.eulerpoolKey;
+      document.getElementById('eulerpoolKey').value = eulerpoolKey;
+    }
+    if(typeof keys.twelveDataKey==='string'){
+      twelveDataKey = keys.twelveDataKey;
+      document.getElementById('twelveDataKey').value = twelveDataKey;
+    }
+  } catch(err){
+    // No saved keys, or malformed -- just leave the fields empty, same as a first visit.
+  }
+}
+
 function saveConfigToLocalStorage(){
   try{
     const cfg = collectConfig();
     cfg.savedAt = new Date().toISOString();
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cfg));
-    setConfigStatus('Saved as this browser\'s new default. Reopening this page here starts from this config; use Download to carry it to another browser/device.', 'ok');
+    saveApiKeysToLocalStorage();
+    setConfigStatus('Saved as this browser\'s new default, including your API keys for next time. Reopening this page here starts from this config; use Download to carry the fund/tax config (never the keys) to another browser/device.', 'ok');
   } catch(err){
     setConfigStatus(`Couldn't save to this browser's local storage: ${err.message}. Use Download instead to keep a copy for now.`, 'err');
   }
@@ -1916,6 +2053,8 @@ document.getElementById('resetFundsBtn').addEventListener('click', resetFunds);
 document.getElementById('saveDefaultsBtn').addEventListener('click', saveConfigToLocalStorage);
 document.getElementById('downloadConfigBtn').addEventListener('click', downloadConfig);
 document.getElementById('uploadConfigBtn').addEventListener('click', ()=>document.getElementById('uploadConfigInput').click());
+document.getElementById('downloadCsvBtn').addEventListener('click', downloadCsv);
+document.getElementById('printReportBtn').addEventListener('click', ()=>window.print());
 document.getElementById('uploadConfigInput').addEventListener('change', (e)=>{
   const file = e.target.files[0];
   if(file) handleUploadFile(file);
@@ -1943,6 +2082,8 @@ document.querySelectorAll('#searchProviderToggle .search-type-btn').forEach(btn=
 document.getElementById('fundSearch').addEventListener('keydown', e=>{
   if(e.key==='Enter'){ e.preventDefault(); searchInstruments(); }
 });
+
+loadApiKeysFromLocalStorage();
 
 // Try loading a server-saved config first; fall back to hardcoded defaults if none.
 loadConfigFromLocalStorage().then(loaded=>{

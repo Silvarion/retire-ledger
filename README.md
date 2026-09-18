@@ -27,6 +27,12 @@ companion server in. Concretely, that meant:
   to this app's own server, never persisted) — that behavior is unchanged
   by this migration; it's what let this become a pure static site with no
   backend at all despite calling a keyed third-party API client-side.
+  (This has since changed by explicit request, 2026-09-18: API keys — now
+  Eulerpool and Twelve Data both — persist to this browser's own
+  localStorage when you click "Save as new defaults", kept in a separate
+  storage key from the shareable config so they never end up in a
+  Download/Upload file. See AGENT.md's "API keys" section for the current
+  behavior and its tradeoff.)
 
 The old docker-compose directory has **not** been deleted — it's left in
 place for reference/rollback. The cutover plan (all manual, outside this

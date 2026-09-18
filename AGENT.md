@@ -22,11 +22,20 @@ Guidelines for working on this site. Every decision must satisfy four principles
 - **Local preview:** any static file server pointed at `html/`, e.g.
   `npx serve html` or `python3 -m http.server -d html`.
 
-## The Eulerpool API key
+## API keys (Eulerpool, Twelve Data)
 
 The page fetches live fund/dividend data client-side directly from
-`api.eulerpool.com`, using an API key the visitor pastes into the page
-each session. That key is never sent anywhere else and never persisted
-(not even to localStorage) — this was already true before the Cloudflare
-migration and must stay true: it's the only reason this page can be a
-plain static site with no backend at all despite calling a keyed API.
+`api.eulerpool.com` and `api.twelvedata.com`, using API keys the visitor
+pastes into the page. Neither key is ever sent anywhere besides that
+provider's own API — no third-party server, no this-app's-own backend
+(there isn't one). By explicit user request (2026-09-18), clicking "Save
+as new defaults" now also persists both keys to this browser's own
+localStorage (a separate key, `retireLedgerApiKeys`, from the shareable
+config under `retireLedgerConfig`) so a returning visitor on the SAME
+browser doesn't have to re-paste them — deliberately kept out of
+`collectConfig()`'s output specifically so they can never end up in a
+Download/Upload file or the printable report, both of which are meant to
+be shareable. Anyone with access to that browser profile (or its
+localStorage) can read the keys back out — a real tradeoff, accepted
+for convenience over the previous "keeps in this tab's memory only, ask
+again every session" behavior.
