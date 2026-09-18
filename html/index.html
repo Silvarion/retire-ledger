@@ -451,7 +451,7 @@
         <select id="currencySelect" class="currency-select" aria-label="Currency"></select>
         <input type="number" id="targetIncome" value="24000" min="0" step="100">
       </div>
-      <div class="hint">Split quarterly (or monthly, via the calendar below) across your funds. All figures on this page (prices, income, capital) are shown in whichever currency you pick — nothing is converted, so enter fund prices/dividends in that same currency too.</div>
+      <div class="hint">Split quarterly (or monthly, via the calendar below) across your funds. Switching currency converts this target and every fund's price/dividend using today's exchange rate (via Frankfurter/ECB) — see the status line below the fund table for the rate used, or if the conversion couldn't be fetched.</div>
     </div>
 
     <div class="field">
@@ -467,7 +467,7 @@
       <div id="spainBox" class="brackets-list" style="display:none;">
         <div><b>19%</b> up to €6,000 &nbsp;·&nbsp; <b>21%</b> €6,000–50,000</div>
         <div><b>23%</b> €50,000–200,000 &nbsp;·&nbsp; <b>27%</b> €200,000–300,000 &nbsp;·&nbsp; <b>30%</b> above</div>
-        <div style="margin-top:6px;color:var(--text-faint);">2026 IRPF base del ahorro (state scale). Applied progressively to total gross dividend income; blended rate shown in results. Bracket thresholds (€6,000 etc.) are fixed by Spanish law in euros regardless of the currency selected above — only use this option if your figures are actually in EUR.</div>
+        <div style="margin-top:6px;color:var(--text-faint);">2026 IRPF base del ahorro (state scale). Applied progressively to total gross dividend income; blended rate shown in results. Bracket thresholds (€6,000 etc.) are fixed by Spanish law in euros and are <b>not</b> converted when you switch currency above — only use this option while your figures are actually in EUR, or the blended rate will be calculated against the wrong-currency amount.</div>
       </div>
     </div>
 
@@ -607,9 +607,10 @@ function defaultFunds(){
 let FUNDS = defaultFunds();
 let taxMode = 'flat'; // 'flat' | 'spain'
 
-// Display currency only — nothing on this page converts between currencies.
-// Pick whichever matches the currency your fund prices/dividends are
-// actually quoted in.
+// Switching currency below actually converts every money figure on the page
+// (target income, fund prices, fund dividends) using a live daily rate — see
+// fetchFxRates()/convertCurrency() further down. Weights (%) and the Spanish
+// tax brackets (fixed by Spanish law in EUR) are never converted.
 const CURRENCIES = {
   EUR: { locale:'es-ES', label:'€ EUR — Euro' },
   USD: { locale:'en-US', label:'$ USD — US Dollar' },
@@ -645,6 +646,66 @@ function updateCurrencyLabels(){
   const sym = currencySymbol(currentCurrency);
   document.getElementById('thPrice').textContent = `Price (${sym})`;
   document.getElementById('thDivPerShare').textContent = `Gross div/share (${sym}/yr)`;
+}
+
+const round2 = n => Math.round(n*100)/100;
+const round4 = n => Math.round(n*10000)/10000;
+
+// Cached for this page load only (Frankfurter/ECB rates update once daily —
+// no need to re-fetch on every currency switch within the same session).
+let fxRates = null;
+
+// Frankfurter (api.frankfurter.dev, mirrors api.frankfurter.app — a free,
+// no-API-key, CORS-enabled wrapper around the European Central Bank's daily
+// reference rates). EUR is the pivot: every other currency's rate is
+// relative to it, and fxRates.EUR is set to 1 so convertAmount() below can
+// treat EUR uniformly with everything else instead of as a special case.
+async function fetchFxRates(){
+  if(fxRates) return fxRates;
+  const symbols = Object.keys(CURRENCIES).filter(c=>c!=='EUR').join(',');
+  const res = await fetch(`https://api.frankfurter.dev/v1/latest?base=EUR&symbols=${symbols}`);
+  if(!res.ok) throw new Error(`Frankfurter returned HTTP ${res.status}`);
+  const json = await res.json();
+  if(!json.rates) throw new Error('Frankfurter response had no rates.');
+  fxRates = { EUR: 1, ...json.rates };
+  return fxRates;
+}
+
+function convertAmount(amount, fromCode, toCode, rates){
+  if(fromCode===toCode) return amount;
+  return (amount/rates[fromCode]) * rates[toCode];
+}
+
+// Converts every money figure currently on the page (target income, each
+// fund's price and dividend/share) from oldCode to newCode using a live
+// rate, mutating both FUNDS and the live input fields directly — the same
+// dual-update pattern fetchOneFundPrice() already uses for live Eulerpool
+// prices. Weights and the Spain tax brackets are untouched (see the
+// CURRENCIES comment above for why). Returns the conversion factor used, or
+// null if the rate fetch failed (caller falls back to a non-converting
+// currency switch in that case).
+async function convertCurrency(oldCode, newCode){
+  let rates;
+  try{
+    rates = await fetchFxRates();
+  } catch(err){
+    return null;
+  }
+  const factor = convertAmount(1, oldCode, newCode, rates);
+
+  const ti = document.getElementById('targetIncome');
+  ti.value = round2((parseFloat(ti.value)||0) * factor);
+
+  FUNDS.forEach(f=>{
+    f.price = round2(f.price*factor);
+    f.div = round4(f.div*factor);
+    const priceEl = document.getElementById('price-'+f.id);
+    const divEl = document.getElementById('divps-'+f.id);
+    if(priceEl) priceEl.value = f.price;
+    if(divEl) divEl.value = f.div;
+  });
+
+  return factor;
 }
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
@@ -1428,10 +1489,22 @@ function render(){
 // ---- wire up ----
 populateCurrencySelect();
 updateCurrencyLabels();
-document.getElementById('currencySelect').addEventListener('change', e=>{
-  currentCurrency = e.target.value;
+document.getElementById('currencySelect').addEventListener('change', async e=>{
+  const newCurrency = e.target.value;
+  const oldCurrency = currentCurrency;
+  if(newCurrency===oldCurrency) return;
+
+  setConfigStatus(`Fetching ${oldCurrency}→${newCurrency} exchange rate…`);
+  const factor = await convertCurrency(oldCurrency, newCurrency);
+  currentCurrency = newCurrency;
   updateCurrencyLabels();
   render();
+
+  if(factor===null){
+    setConfigStatus(`Couldn't fetch a live exchange rate — switched the display currency without converting the numbers. Update your target income and fund prices/dividends manually, or try again.`, 'err');
+  } else {
+    setConfigStatus(`Converted to ${newCurrency} at today's rate (1 ${oldCurrency} = ${round4(factor)} ${newCurrency}, via Frankfurter/ECB).`, 'ok');
+  }
 });
 document.getElementById('btnFlat').addEventListener('click',()=>{
   taxMode='flat';
